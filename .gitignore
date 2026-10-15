@@ -4,3 +4,10 @@ dist
 .env
 .DS_Store
 *.log
+
+# Temporary Prisma 8 files
+/backend/.agents/
+/backend/.claude/
+/backend/.cursor/
+/backend/.devin/
+/backend/prisma.config.prisma8.backup

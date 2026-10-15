@@ -1,23 +1,22 @@
+
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-
-declare const process: {
-  env: Record<string, string | undefined>;
-};
+import { AppModule } from './app.module';
 
 async function bootstrap() {
-  // Work around the duplicated NestJS dependency/type mismatch between workspace root and backend.
-  const app = (await NestFactory.create(AppModule)) as any;
+  const app = await NestFactory.create(AppModule);
 
-  // ✅ 1. Bật CORS cho Next.js (http://localhost:3001) gọi API không bị chặn
+  // Task 2: Cho phép Next.js Frontend gọi Backend
   app.enableCors({
-    origin: ['http://localhost:3001', 'http://127.0.0.1:3001'],
+    origin: [
+      'http://localhost:3001',
+      'http://127.0.0.1:3001',
+    ],
     credentials: true,
   });
 
-  // ✅ 2. ValidationPipe toàn cục — BẮT BUỘC theo đề bài
+  // Task 7: Kiểm tra dữ liệu đầu vào
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -26,18 +25,29 @@ async function bootstrap() {
     }),
   );
 
-  // ✅ 3. Swagger — xem & test API trực tiếp
-  const config = new DocumentBuilder()
-    .setTitle('API Dự Án Brewlite')
-    .setDescription('Tài liệu API cho nhóm — Menu & Sản phẩm')
+  // Swagger chung cho Products API và Authentication API
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('BrewLite API')
+    .setDescription(
+      'API documentation for BrewLite coffee ordering system',
+    )
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
-  const document = SwaggerModule.createDocument(app, config);
+
+  const document = SwaggerModule.createDocument(
+    app,
+    swaggerConfig,
+  );
+
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT || 3000;
+  const port = Number(process.env.PORT ?? 3000);
+
   await app.listen(port);
-  console.log(`✅ Backend chạy tại: http://localhost:${port}`);
-  console.log(`✅ Tài liệu Swagger: http://localhost:${port}/api/docs`);
+
+  console.log(`Backend: http://localhost:${port}`);
+  console.log(`Swagger: http://localhost:${port}/api/docs`);
 }
-bootstrap();
+
+void bootstrap();

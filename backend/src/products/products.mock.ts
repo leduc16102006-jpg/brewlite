@@ -66,6 +66,5 @@ export const MOCK_PRODUCTS: Product[] = [
       name: 'Salty coffee',
       price: 45000,
       imageUrl: '/images/salty-coffee.jpg',
-    }, 
+    },
   ];
-

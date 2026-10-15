@@ -54,7 +54,7 @@ Frontend chạy tại: http://localhost:3001 (Truy cập hiển thị "Hello Bre
       npm install @nestjs/platform-express(**Nền tảng chạy NestJS trên Express — cốt lõi**)
       npm install @nestjs/swagger(**Tạo tài liệu API tự động**)
       npm install class-validator class-transformer(**Kiểm tra dữ liệu đầu vào;Chuyển đổi dữ liệu tự động, hỗ trợ validation**)
-      
+
    ## 2.Sua lai mot chut ham main.ts o backend:
       Cấu hình CORS — Cho phép frontend gọi API(**Khắc phục lỗi "Access-Control-Allow-Origin" khi gọi từ frontend**)
       ValidationPipe — Kiểm tra dữ liệu tự động(**Áp dụng cho toàn bộ ứng dụng không cần khai báo lại ở từng controller**)
@@ -71,13 +71,13 @@ Frontend chạy tại: http://localhost:3001 (Truy cập hiển thị "Hello Bre
          interface Product định nghĩa cấu trúc của một sản phẩm.
          MOCK_PRODUCTS là mảng dữ liệu giả lập, đóng vai trò như dữ liệu lấy từ database.
          export cho phép các file khác sử dụng dữ liệu này.
-   
+
    ## 5.Viet service:
       Tạo file backend/src/products/products.service.ts
          findAll() trả về toàn bộ danh sách sản phẩm.
          findOne(id) tìm một sản phẩm theo ID, có thể dùng cho API chi tiết sản phẩm về sau.
          @Injectable() cho phép NestJS quản lý và inject service.
-   
+
    ## 6.Viet controller:
       Tạo file backend/src/products/products.controller.ts
          NestJS tự chuyển mảng object TypeScript thành JSON trong HTTP response.
