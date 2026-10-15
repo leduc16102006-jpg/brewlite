@@ -76,18 +76,4 @@ npm run dev
 
 Frontend chạy tại: http://localhost:3001 (hoặc http://localhost:3000)
 
-5. Quy định làm việc nhóm trên Git (BẮT BUỘC)
-Nhánh main: Chỉ chứa mã nguồn ổn định nhất dùng để nghiệm thu và nộp bài. Không ai được commit trực tiếp vào main.
 
-Nhánh develop: Nhánh tích hợp chung của nhóm. Tất cả tính năng sau khi test đạt sẽ được tạo Pull Request (PR) gộp vào đây.
-
-Quy trình làm task mới:
-
-Cập nhật nhánh mới nhất: git checkout develop && git pull origin develop
-
-Tạo nhánh tính năng riêng: git checkout -b feature/<tên-task>
-
-Sau khi hoàn thành và test đạt DoD, đẩy nhánh lên GitHub và tạo Pull Request vào nhánh develop.
-
-
----
