@@ -76,4 +76,80 @@ npm run dev
 
 Frontend chạy tại: http://localhost:3001 (hoặc http://localhost:3000)
 
+# Task 6 – Orders API
+
+1. Mô tả:
+Xây dựng API tạo đơn hàng cho hệ thống BrewLite bằng NestJS và Prisma ORM. API cho phép người dùng đã đăng nhập tạo đơn hàng từ danh sách sản phẩm.
+
+2. API Endpoint:
+POST/orders: tạo đơn hàng mới/JWT Bearer Token
+
+3. Request Headers:
+Content-Type: application/json
+Authorization: Bearer <access_token>
+
+4. Request Body:
+{
+  "items": [
+    {
+      "productId": 1,
+      "qty": 2,
+      "size": "M"
+    }
+  ]
+}
+Trong đó:
+    productId: ID sản phẩm cần đặt.
+    qty: Số lượng sản phẩm, phải lớn hơn hoặc bằng 1.
+    size: Kích cỡ sản phẩm, không bắt buộc.
+
+5. Xử lý nghiệp vụ:
+    Xác thực người dùng bằng JWT.
+    Kiểm tra tài khoản và sự tồn tại của sản phẩm.
+    Kiểm tra số lượng tồn kho.
+    Tính tổng tiền dựa trên giá sản phẩm trong cơ sở dữ liệu.
+    Cập nhật tồn kho sau khi đặt hàng.
+    Lưu thông tin đơn hàng và các sản phẩm thuộc đơn hàng.
+    Sử dụng Prisma transaction để đảm bảo các thao tác liên quan được xử lý đồng bộ.
+
+6. Response thành công:
+Ví dụ minh họa cấu trúc phản hồi; dữ liệu thực tế phụ thuộc vào cơ sở dữ liệu.
+{
+  "id": 1,
+  "userId": 1,
+  "status": "PENDING",
+  "total": 78000,
+  "items": [
+    {
+      "productId": 1,
+      "qty": 2,
+      "lineTotal": 78000
+    }
+  ]
+}
+
+7. Các trường hợp lỗi:
+400 Bad Request: Dữ liệu đầu vào không hợp lệ hoặc không đủ tồn kho
+401 Unauthorized: Thiếu JWT hoặc token không hợp lệ
+404 Not Found: Sản phẩm không tồn tại
+
+8. Cách kiểm thử:
+    1 Khởi động PostgreSQL và cấu hình DATABASE_URL trong file .env.
+
+    2 Chạy backend bằng npm run start:dev.
+
+    3 Mở Swagger tại http://localhost:3000/api/docs.
+
+    4 Đăng ký hoặc đăng nhập để lấy access token.
+
+    5 Nhấn Authorize và nhập token theo hướng dẫn của Swagger.
+
+    6 Gọi POST /orders với request body hợp lệ.
+
+    7 Kiểm tra kết quả trả về và xác nhận dữ liệu đơn hàng, chi tiết đơn hàng, tồn kho trong cơ sở dữ liệu.
+
+**file seed.ts nap du lieu vao postgreSQL de POST/orders: xem bang product tai: npx prisma studio**
+    cd backend
+    npx prisma migrate status
+    npx prisma studio
 
