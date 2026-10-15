@@ -3,95 +3,91 @@
 Dự án bài tập lớn môn Công nghệ Phần mềm - Học kỳ I (2026-2027)
 Khoa Công nghệ Thông tin - Trường Đại học Sài Gòn.
 
+---
+
 ## 1. Thành viên nhóm (6 thành viên)
-- Thành viên A: Product Owner / Giỏ hàng & Thanh toán (Frontend)
-- Thành viên B: Scrum Master / DevOps, Lịch sử đơn & Bàn giao
-- Thành viên C: Developer / CSDL, Danh mục sản phẩm & State Machine
-- Thành viên D: Developer / Giao diện Menu & Chi tiết sản phẩm
-- Thành viên E: Developer / Xác thực tài khoản (JWT) & Tồn kho đồng thời
-- Thành viên F: Developer / Đơn hàng, Thanh toán Idempotent & Điểm thưởng
+- **Thành viên A**: Product Owner / Giỏ hàng & Thanh toán (Frontend)
+- **Thành viên B**: Scrum Master / DevOps, Lịch sử đơn & Bàn giao
+- **Thành viên C**: Developer / CSDL, Danh mục sản phẩm & State Machine
+- **Thành viên D**: Developer / Giao diện Menu & Chi tiết sản phẩm
+- **Thành viên E**: Developer / Xác thực tài khoản (JWT) & Tồn kho đồng thời
+- **Thành viên F**: Developer / Đơn hàng, Thanh toán Idempotent & Điểm thưởng
+
+---
 
 ## 2. Công nghệ sử dụng
-- **Frontend**: Next.js (TypeScript, TailwindCSS)
-- **Backend**: NestJS (TypeScript, REST API)
-- **Database**: PostgreSQL (Prisma/TypeORM)
-- **Hạ tầng**: Docker Compose, Git
+- **Frontend**: Next.js 14+ (TypeScript, TailwindCSS, App Router)
+- **Backend**: NestJS (TypeScript, REST API, Swagger OAS 3.0)
+- **Database & ORM**: PostgreSQL 16 (chạy qua Docker Compose) kết hợp Prisma ORM
+- **Bảo mật & Validation**: Bcrypt (băm mật khẩu), Passport-JWT (xác thực token), class-validator
+- **Hạ tầng & Quản lý mã nguồn**: Docker Compose, Git (GitFlow: `main`, `develop`, `feature/*`)
 
-## 3. Hướng dẫn cài đặt & Chạy trên môi trường cục bộ (Local)
+---
+
+## 3. Danh sách API đã hoàn thành (Tính đến hiện tại)
+
+Tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api/docs`
+
+| Nhóm chức năng | Phương thức | Endpoint | Mô tả / Tiêu chí | Người phụ trách |
+| :--- | :---: | :--- | :--- | :---: |
+| **Sản phẩm (Task 2)** | `GET` | `/products` | Trả về danh sách menu đồ uống (id, tên, giá, ảnh) | Bạn C |
+| | `GET` | `/products/:id` | Trả về chi tiết món kèm tùy chọn | Bạn C |
+| **Xác thực (Task 7)** | `POST` | `/auth/register` | Đăng ký tài khoản (mật khẩu băm qua bcrypt) | Bạn E |
+| | `POST` | `/auth/login` | Đăng nhập và nhận chuỗi JWT AccessToken | Bạn E |
+| | `GET` | `/auth/me` | Lấy thông tin cá nhân (Bảo vệ bởi `JwtAuthGuard`) | Bạn E |
+
+---
+
+## 4. Hướng dẫn cài đặt và Khởi chạy hệ thống (Local)
 
 ### Yêu cầu môi trường
-- Đã cài đặt Node.js (phiên bản 18+ hoặc 20+)
-- Đã cài đặt Git
+- Đã cài đặt **Node.js** (phiên bản 20+ hoặc 22+)
+- Đã cài đặt và đang bật ứng dụng **Docker Desktop** trên máy tính
 
-### Các bước cài đặt:
-1. **Clone repository:**
-   ```bash
-   git clone <URL_REPO_CUA_NHOM>
-   cd brewlite
+---
 
-   Cài đặt & Khởi chạy Backend:
+### BƯỚC 1: Khởi động Cơ sở dữ liệu PostgreSQL (qua Docker)
+Đứng tại thư mục gốc `brewlite`, mở terminal và chạy đúng một lệnh duy nhất:
+bash ( terminal):
 
-Bash
+docker compose up -d
+
+### BƯỚC 2: Khởi chạy Backend (NestJS)
+Mở terminal và di chuyển vào thư mục backend:
+
 cd backend
 npm install
-cp .env.example .env
+cp .env.example .env    # Trên Windows PowerShell dùng: copy .env.example .env
+npx prisma generate
+npx prisma db push
 npm run start:dev
-Backend chạy tại: http://localhost:3000 (Truy cập hiển thị "Hello BrewLite Backend! siuuuuu ")
 
-Cài đặt & Khởi chạy Frontend:
+Backend chạy tại: http://localhost:3000
 
-Bash
-cd ../frontend
+Tài liệu Swagger UI: http://localhost:3000/api/docs
+
+### BƯỚC 3: Khởi chạy Frontend (Next.js)
+Mở một cửa sổ terminal mới và di chuyển vào thư mục frontend:
+
+cd frontend
 npm install
-cp .env.example .env.local
+cp .env.example .env.local    # Trên Windows PowerShell dùng: copy .env.example .env.local
 npm run dev
-Frontend chạy tại: http://localhost:3001 (Truy cập hiển thị "Hello BrewLite! siuuuu ")
 
-2. # API danh sach san pham va su dung mock data: **Branch: feature/task2-products-api**
-   **Sua lai frontend nam o cong 3001**
+Frontend chạy tại: http://localhost:3001 (hoặc http://localhost:3000)
 
-   ## 1.Cai dat cac thu vien sau:
-      npm install @nestjs/platform-express(**Nền tảng chạy NestJS trên Express — cốt lõi**)
-      npm install @nestjs/swagger(**Tạo tài liệu API tự động**)
-      npm install class-validator class-transformer(**Kiểm tra dữ liệu đầu vào;Chuyển đổi dữ liệu tự động, hỗ trợ validation**)
+5. Quy định làm việc nhóm trên Git (BẮT BUỘC)
+Nhánh main: Chỉ chứa mã nguồn ổn định nhất dùng để nghiệm thu và nộp bài. Không ai được commit trực tiếp vào main.
 
-   ## 2.Sua lai mot chut ham main.ts o backend:
-      Cấu hình CORS — Cho phép frontend gọi API(**Khắc phục lỗi "Access-Control-Allow-Origin" khi gọi từ frontend**)
-      ValidationPipe — Kiểm tra dữ liệu tự động(**Áp dụng cho toàn bộ ứng dụng không cần khai báo lại ở từng controller**)
-      Cấu hình Swagger — Tài liệu API trực quan(**Mở http://localhost:3000/api/docs → xem & test trực tiếp trên trình duyệt**)
+Nhánh develop: Nhánh tích hợp chung của nhóm. Tất cả tính năng sau khi test đạt sẽ được tạo Pull Request (PR) gộp vào đây.
 
-   ## 3.API trả về danh sách menu gồm các trường:
-      - id: mã sản phẩm(integer)
-      - name: tên sản phẩm(string)
-      - price: giá(integer)
-      - image: đường dẫn ảnh(string)
+Quy trình làm task mới:
 
-   ## 4.Tao mock data:
-      Tạo file backend/src/products/products.mock.ts
-         interface Product định nghĩa cấu trúc của một sản phẩm.
-         MOCK_PRODUCTS là mảng dữ liệu giả lập, đóng vai trò như dữ liệu lấy từ database.
-         export cho phép các file khác sử dụng dữ liệu này.
+Cập nhật nhánh mới nhất: git checkout develop && git pull origin develop
 
-   ## 5.Viet service:
-      Tạo file backend/src/products/products.service.ts
-         findAll() trả về toàn bộ danh sách sản phẩm.
-         findOne(id) tìm một sản phẩm theo ID, có thể dùng cho API chi tiết sản phẩm về sau.
-         @Injectable() cho phép NestJS quản lý và inject service.
+Tạo nhánh tính năng riêng: git checkout -b feature/<tên-task>
 
-   ## 6.Viet controller:
-      Tạo file backend/src/products/products.controller.ts
-         NestJS tự chuyển mảng object TypeScript thành JSON trong HTTP response.
+Sau khi hoàn thành và test đạt DoD, đẩy nhánh lên GitHub và tạo Pull Request vào nhánh develop.
 
-   ## 7.Dang ky product module:
-      Tạo file backend/src/products/products.module.ts
-      Tiếp theo, mở backend/src/app.module.ts và đăng ký module
-      Nếu AppModule của bạn đã có các module khác, hãy thêm ProductsModule vào mảng imports hiện tại, không xóa các module cũ
 
-   ## 8.Chay backend:
-      cd backend
-      npm run start:dev
-      kiem tra API GET/products: http://localhost:3000/products
-      Backend chạy tại: http://localhost:3000
-      Tài liệu Swagger: http://localhost:3000/api/docs
-
-   **Đây là dữ liệu JSON mẫu mà API cần trả về. Các đường dẫn ảnh hiện chỉ là chuỗi URL tương đối; để ảnh hiển thị trên giao diện, frontend cần có ảnh tương ứng và xử lý đường dẫn đúng.**
+---
