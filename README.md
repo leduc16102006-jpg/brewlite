@@ -1,155 +1,148 @@
-# BrewLite - Coffee Ordering App
+# BrewLite - Ứng dụng Web Đặt Cà Phê Trực Tuyến Không Dùng Tiền Mặt
 
-Dự án bài tập lớn môn Công nghệ Phần mềm - Học kỳ I (2026-2027)
+Dự án Bài tập lớn môn **Công nghệ Phần mềm** (Software Engineering) - Học kỳ I (Năm học 2026-2027)  
 Khoa Công nghệ Thông tin - Trường Đại học Sài Gòn.
 
 ---
 
-## 1. Thành viên nhóm (6 thành viên)
-- **Thành viên A**: Product Owner / Giỏ hàng & Thanh toán (Frontend)
-- **Thành viên B**: Scrum Master / DevOps, Lịch sử đơn & Bàn giao
-- **Thành viên C**: Developer / CSDL, Danh mục sản phẩm & State Machine
-- **Thành viên D**: Developer / Giao diện Menu & Chi tiết sản phẩm
-- **Thành viên E**: Developer / Xác thực tài khoản (JWT) & Tồn kho đồng thời
-- **Thành viên F**: Developer / Đơn hàng, Thanh toán Idempotent & Điểm thưởng
+## 1. Cơ cấu Nhóm & Phân công nhiệm vụ (6 thành viên)
+
+| STT | Thành viên | Vai trò Scrum | Phân công nhiệm vụ & Mã Task phụ trách |
+| :---: | :--- | :--- | :--- |
+| 1 | **Thành viên A** | Product Owner (PO) | Quản lý Product Backlog; Xây dựng giao diện Giỏ hàng (Task 5) và Giao diện Thanh toán (Task 8 UI). |
+| 2 | **Thành viên B** | Scrum Master / DevOps | Quản lý Monorepo, Docker Compose, Tài liệu README, Hướng dẫn môi trường, API Lịch sử đơn `GET /orders/me` & Nghiệm thu bàn giao (Task 1, Task 9). |
+| 3 | **Thành viên C** | Developer | CSDL danh mục sản phẩm, API `GET /products` (Task 2) và Order State Machine `assertTransition` (Task 10.1). |
+| 4 | **Thành viên D** | Developer | Giao diện Menu hiển thị dạng lưới (Task 3) và Modal chọn Size/Topping tính giá cộng dồn (Task 4). |
+| 5 | **Thành viên E** | Developer | Xác thực tài khoản (`POST /auth/register`, `POST /auth/login`, Bcrypt, JWT, `JwtAuthGuard`) (Task 7) và Kiểm soát tồn kho bằng Transaction + Optimistic Locking (Task 10.3). |
+| 6 | **Thành viên F** | Developer | API Tạo đơn hàng `POST /orders` (Task 6), API `POST /payments` Idempotent (Task 8 BE, Task 10.2) và Khuyến mãi / Điểm thưởng loyalty (Task 10.4). |
 
 ---
 
-## 2. Công nghệ sử dụng
-- **Frontend**: Next.js 14+ (TypeScript, TailwindCSS, App Router)
-- **Backend**: NestJS (TypeScript, REST API, Swagger OAS 3.0)
-- **Database & ORM**: PostgreSQL 16 (chạy qua Docker Compose) kết hợp Prisma ORM
-- **Bảo mật & Validation**: Bcrypt (băm mật khẩu), Passport-JWT (xác thực token), class-validator
-- **Hạ tầng & Quản lý mã nguồn**: Docker Compose, Git (GitFlow: `main`, `develop`, `feature/*`)
+## 2. Kiến trúc & Ngăn xếp Công nghệ (Tech Stack)
+
+Hệ thống được tổ chức theo mô hình Monorepo gồm 2 phân hệ độc lập:
+* **Frontend (`/frontend`)**: Next.js 14+ (App Router), TypeScript, TailwindCSS, Axios / Fetch API, Zustand / React Context quản lý trạng thái giỏ hàng.
+* **Backend (`/backend`)**: NestJS, TypeScript, Kiến trúc Module chuẩn, OpenAPI Swagger UI tài liệu hóa API, Passport-JWT, class-validator.
+* **Cơ sở dữ liệu (Database)**: PostgreSQL 16 chạy trong container Docker độc lập, quản lý lược đồ và truy vấn qua Prisma ORM.
+* **Quy trình phát triển**: Tuân thủ Agile/Scrum, GitFlow (`main`, `develop`, `feature/*`), và quy chuẩn Definition of Done (DoD).
 
 ---
 
-## 3. Danh sách API đã hoàn thành (Tính đến hiện tại)
+## 3. Danh sách API Backend đã hoàn thành & Đã kiểm thử
 
-Tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api/docs`
+Hệ thống cung cấp tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api/docs`
 
-| Nhóm chức năng | Phương thức | Endpoint | Mô tả / Tiêu chí | Người phụ trách |
-| :--- | :---: | :--- | :--- | :---: |
-| **Sản phẩm (Task 2)** | `GET` | `/products` | Trả về danh sách menu đồ uống (id, tên, giá, ảnh) | Bạn C |
-| | `GET` | `/products/:id` | Trả về chi tiết món kèm tùy chọn | Bạn C |
-| **Xác thực (Task 7)** | `POST` | `/auth/register` | Đăng ký tài khoản (mật khẩu băm qua bcrypt) | Bạn E |
-| | `POST` | `/auth/login` | Đăng nhập và nhận chuỗi JWT AccessToken | Bạn E |
-| | `GET` | `/auth/me` | Lấy thông tin cá nhân (Bảo vệ bởi `JwtAuthGuard`) | Bạn E |
-
----
-
-## 4. Hướng dẫn cài đặt và Khởi chạy hệ thống (Local)
-
-### Yêu cầu môi trường
-- Đã cài đặt **Node.js** (phiên bản 20+ hoặc 22+)
-- Đã cài đặt và đang bật ứng dụng **Docker Desktop** trên máy tính
+| Phân hệ | Phương thức | Endpoint | Yêu cầu xác thực | Mô tả chi tiết & Nghiệp vụ |
+| :--- | :---: | :--- | :---: | :--- |
+| **Task 2: Sản phẩm** | `GET` | `/products` | Public | Lấy danh sách toàn bộ menu đồ uống (id, tên, giá, ảnh, số lượng tồn kho). |
+| | `GET` | `/products/:id` | Public | Lấy thông tin chi tiết của một sản phẩm theo mã ID. |
+| **Task 7: Xác thực** | `POST` | `/auth/register` | Public | Đăng ký tài khoản người dùng mới (Mật khẩu được băm an toàn qua Bcrypt). |
+| | `POST` | `/auth/login` | Public | Đăng nhập hệ thống, kiểm tra mật khẩu và trả về chuỗi `accessToken` (JWT). |
+| | `GET` | `/auth/me` | Bearer JWT | Trích xuất thông tin người dùng từ token (Bảo vệ bởi `JwtAuthGuard`). |
+| **Task 6: Đơn hàng** | `POST` | `/orders` | Bearer JWT | Tạo đơn hàng mới (`PENDING`), validate đầu vào qua `class-validator`, trừ tồn kho tự động trong Transaction, tính tổng tiền trên server. |
 
 ---
 
-### BƯỚC 1: Khởi động Cơ sở dữ liệu PostgreSQL (qua Docker)
-Đứng tại thư mục gốc `brewlite`, mở terminal và chạy đúng một lệnh duy nhất:
-bash ( terminal):
+## 4. Hướng dẫn Cài đặt & Khởi chạy Toàn diện cho Thành viên mới
 
+### Yêu cầu môi trường tối thiểu
+* Đã cài đặt **Node.js** (phiên bản 20 LTS hoặc 22 LTS).
+* Đã cài đặt và đang bật ứng dụng **Docker Desktop** trên máy tính (biểu tượng Engine báo màu xanh lá cây).
+
+---
+
+### BƯỚC 1: Khởi động Cơ sở dữ liệu PostgreSQL (Docker)
+Tại thư mục gốc của dự án (`brewlite`), mở terminal và chạy:
+``bash
 docker compose up -d
 
-### BƯỚC 2: Khởi chạy Backend (NestJS)
-Mở terminal và di chuyển vào thư mục backend:
+Kiểm tra: Gõ lệnh docker ps, nếu thấy container brewlite_postgres đang chạy trên cổng 5432 là hoàn tất
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+### BƯỚC 2: Cài đặt và Khởi chạy Backend (NestJS)
+Mở một cửa sổ terminal mới và thực hiện tuần tự các lệnh sau:
 
+# 1. Di chuyển vào thư mục backend
 cd backend
+
+# 2. Cài đặt các thư viện phụ thuộc
 npm install
-cp .env.example .env    # Trên Windows PowerShell dùng: copy .env.example .env
+
+# 3. Tạo tệp cấu hình môi trường từ mẫu
+# Trên Windows PowerShell:
+copy .env.example .env
+# Trên macOS / Linux:
+# cp .env.example .env
+
+# 4. Tạo bộ mã Prisma Client và đồng bộ cấu trúc bảng vào CSDL
 npx prisma generate
 npx prisma db push
+
+# 5. Nạp dữ liệu menu mẫu (10 món đồ uống với tồn kho sẵn sàng)
+npx prisma db seed
+
+# 6. Khởi động máy chủ backend ở chế độ phát triển
 npm run start:dev
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+### !!! xem thêm
+- Địa chỉ Backend API: http://localhost:3000
 
-Backend chạy tại: http://localhost:3000
+- Tài liệu kiểm thử Swagger UI: http://localhost:3000/api/docs
 
-Tài liệu Swagger UI: http://localhost:3000/api/docs
+- Trình quản lý CSDL trực quan (Prisma Studio):
+# Mở một terminal mới tại thư mục backend và chạy:
+npx prisma studio
+# Truy cập tại: http://localhost:5555
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+### BƯỚC 3: Cài đặt và Khởi chạy Frontend (Next.js)
+Mở một cửa sổ terminal khác và thực hiện:
 
-### BƯỚC 3: Khởi chạy Frontend (Next.js)
-Mở một cửa sổ terminal mới và di chuyển vào thư mục frontend:
-
+Bash
+# 1. Di chuyển vào thư mục frontend
 cd frontend
+
+# 2. Cài đặt các thư viện phụ thuộc
 npm install
-cp .env.example .env.local    # Trên Windows PowerShell dùng: copy .env.example .env.local
+
+# 3. Tạo tệp cấu hình môi trường frontend
+# Trên Windows PowerShell:
+copy .env.example .env.local
+# Trên macOS / Linux:
+# cp .env.example .env.local
+
+# 4. Khởi động giao diện Next.js
 npm run dev
 
-Frontend chạy tại: http://localhost:3001 (hoặc http://localhost:3000)
+Địa chỉ Frontend: http://localhost:3001 (hoặc http://localhost:3000 nếu backend cấu hình cổng khác)
 
-# Task 6 – Orders API
+---------------------------------------------------------------------------------------------------------------------------------------
+### 5. Hướng dẫn Kiểm thử luồng Đặt hàng (End-to-End Test qua Swagger)
+Mở trình duyệt truy cập: http://localhost:3000/api/docs.
 
-1. Mô tả:
-Xây dựng API tạo đơn hàng cho hệ thống BrewLite bằng NestJS và Prisma ORM. API cho phép người dùng đã đăng nhập tạo đơn hàng từ danh sách sản phẩm.
+Mở mục Auth, chọn POST /auth/register hoặc POST /auth/login để tạo/đăng nhập tài khoản.
 
-2. API Endpoint:
-POST/orders: tạo đơn hàng mới/JWT Bearer Token
+Sao chép chuỗi accessToken nhận được từ phản hồi.
 
-3. Request Headers:
-Content-Type: application/json
-Authorization: Bearer <access_token>
+Cuộn lên đầu trang Swagger, nhấn vào nút Authorize (hình ổ khóa màu xanh lá cây), nhập:
 
-4. Request Body:
+Plaintext
+Bearer <chuỗi_token_vừa_sao_chép>
+Sau đó nhấn nút Authorize rồi nhấn Close.
+
+Cuộn xuống mục Orders, chọn POST /orders, nhấn Try it out, nhập nội dung JSON:
+
+JSON
 {
   "items": [
     {
       "productId": 1,
-      "qty": 2,
+      "qty": 1,
       "size": "M"
-    }
-  ]
-}
-Trong đó:
-    productId: ID sản phẩm cần đặt.
-    qty: Số lượng sản phẩm, phải lớn hơn hoặc bằng 1.
-    size: Kích cỡ sản phẩm, không bắt buộc.
-
-5. Xử lý nghiệp vụ:
-    Xác thực người dùng bằng JWT.
-    Kiểm tra tài khoản và sự tồn tại của sản phẩm.
-    Kiểm tra số lượng tồn kho.
-    Tính tổng tiền dựa trên giá sản phẩm trong cơ sở dữ liệu.
-    Cập nhật tồn kho sau khi đặt hàng.
-    Lưu thông tin đơn hàng và các sản phẩm thuộc đơn hàng.
-    Sử dụng Prisma transaction để đảm bảo các thao tác liên quan được xử lý đồng bộ.
-
-6. Response thành công:
-Ví dụ minh họa cấu trúc phản hồi; dữ liệu thực tế phụ thuộc vào cơ sở dữ liệu.
-{
-  "id": 1,
-  "userId": 1,
-  "status": "PENDING",
-  "total": 78000,
-  "items": [
+    },
     {
-      "productId": 1,
+      "productId": 2,
       "qty": 2,
-      "lineTotal": 78000
+      "size": "L"
     }
   ]
 }
-
-7. Các trường hợp lỗi:
-400 Bad Request: Dữ liệu đầu vào không hợp lệ hoặc không đủ tồn kho
-401 Unauthorized: Thiếu JWT hoặc token không hợp lệ
-404 Not Found: Sản phẩm không tồn tại
-
-8. Cách kiểm thử:
-    1 Khởi động PostgreSQL và cấu hình DATABASE_URL trong file .env.
-
-    2 Chạy backend bằng npm run start:dev.
-
-    3 Mở Swagger tại http://localhost:3000/api/docs.
-
-    4 Đăng ký hoặc đăng nhập để lấy access token.
-
-    5 Nhấn Authorize và nhập token theo hướng dẫn của Swagger.
-
-    6 Gọi POST /orders với request body hợp lệ.
-
-    7 Kiểm tra kết quả trả về và xác nhận dữ liệu đơn hàng, chi tiết đơn hàng, tồn kho trong cơ sở dữ liệu.
-
-**file seed.ts nap du lieu vao postgreSQL de POST/orders: xem bang product tai: npx prisma studio**
-    cd backend
-    npx prisma migrate status
-    npx prisma studio
-
+Nhấn Execute. Hệ thống trả về mã trạng thái 201 Created cùng mã đơn hàng và trạng thái PENDING.
