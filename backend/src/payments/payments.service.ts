@@ -66,20 +66,34 @@ export class PaymentsService {
     // Simulated wallet/card payment
     const status = await this.gateway.charge(dto.method);
 
-    // Update the real order in PostgreSQL
-    const updated = await this.prisma.order.updateMany({
-      where: {
-        id: order.id,
-        status: order.status,
-      },
-      data: { status },
-    });
+    // Save Order status and Payment history atomically
+    await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.order.updateMany({
+        where: {
+          id: order.id,
+          userId,
+          status: order.status,
+        },
+        data: {
+          status,
+        },
+      });
 
-    if (updated.count !== 1) {
-      throw new BadRequestException(
-        'Order status changed. Please try again',
-      );
-    }
+      if (updated.count !== 1) {
+        throw new BadRequestException(
+          'Order status changed. Please try again',
+        );
+      }
+
+      await tx.payment.create({
+        data: {
+          orderId: order.id,
+          amount: order.total,
+          method: dto.method,
+          status,
+        },
+      });
+    });
 
     return {
       orderId: order.id,

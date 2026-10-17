@@ -221,85 +221,62 @@ Nhánh lỗi cũng được kiểm thử bằng Jest thông qua `mockGateway.cha
 
 **Giới hạn:** cập nhật có điều kiện không thay thế Idempotency-Key của Task 10.2; chưa có bản ghi `Payment` riêng trong schema Task 6. Cơ chế hoàn tồn kho khi thanh toán thất bại cần thống nhất với nhóm; chưa được xác nhận là đã triển khai.
 
-## 7. Unit Test và Build
+---------------------------------------------------------------------
 
-```powershell
-npm test -- --runInBand
-npm run build
+## Cập nhật: Lưu lịch sử giao dịch Payment
+
+### 1. Database
+
+Bổ sung model Payment trong Prisma với các trường:
+
+- id: Mã giao dịch
+- orderId: Mã đơn hàng
+- amount: Số tiền thanh toán
+- method: WALLET hoặc CARD
+- status: PAID hoặc PAYMENT_FAILED
+- idempotencyKey: Trường tùy chọn, dành cho Task 10.2
+- createdAt: Thời gian tạo giao dịch
+
+Payment có quan hệ với Order.
+
+### 2. Migration
+
+Migration đã tạo:
+
+20261017173842_add_payment_history
+
+Để áp dụng các migration đã commit trên môi trường phát triển:
+
+```bash
+npx prisma migrate deploy
+npx prisma generate
 ```
 
-Kết quả cuối cùng đã xác nhận **sau khi khôi phục Mock Gateway về `PAID`**:
+### 3. Xử lý thanh toán
 
-```text
-PASS src/payments/payments.controller.spec.ts
-PASS src/payments/payments.service.spec.ts
-PASS src/app.controller.spec.ts
+POST /payments thực hiện:
 
-Test Suites: 3 passed, 3 total
-Tests:       10 passed, 10 total
-```
+1. Xác thực JWT.
+2. Kiểm tra đơn hàng tồn tại.
+3. Kiểm tra quyền sở hữu đơn hàng.
+4. Kiểm tra trạng thái đơn hàng.
+5. Thực hiện Mock Payment bằng WALLET/CARD.
+6. Cập nhật Order và tạo Payment trong cùng
+   Prisma database transaction.
+7. Trả về kết quả thanh toán.
 
-`npm run build` hoàn tất không có lỗi TypeScript. Cảnh báo `ExperimentalWarning: VM Modules` của Node.js không làm test thất bại.
+### 4. Kiểm thử
 
-Nội dung test Payment: WALLET/CARD thành công, Gateway thất bại, không có Order, sai chủ sở hữu, thanh toán lại Order `PAID`, trạng thái Order thay đổi, và Controller truyền `userId`/DTO đúng vào Service. Đây là **unit test với mock Prisma**; việc thay đổi database được kiểm chứng riêng qua Swagger + SQL ở mục 5.
+- WALLET -> PAID: PASS
+- CARD -> PAID: PASS
+- PAYMENT_FAILED: PASS (Unit Test)
+- Lưu WALLET/PAID vào PostgreSQL: PASS
+- Jest: 10/10 PASS
+- NestJS Build: PASS
 
-## 8. Nhật ký công việc đã thực hiện
+### 5. Giới hạn hiện tại
 
-1. **Task 7 (phụ thuộc):** sử dụng JWT Authentication đã triển khai (`/auth/register`, `/auth/login`, JWT Guard) để bảo vệ API.
-2. **Tạo cấu trúc Task 8:** scaffold `PaymentsModule`, `PaymentsController`, `PaymentsService`, DTO và Mock Gateway; hỗ trợ enum `WALLET`/`CARD`.
-3. **Kiểm thử mock ban đầu:** gọi `POST /payments` bằng JWT; giai đoạn đầu mới trả kết quả mô phỏng, chưa cập nhật Order vào database.
-4. **Tích hợp Task 6:** merge code Orders từ `origin/develop` vào `feature/task8-payment`; xử lý xung đột ở `src/app.module.ts` bằng cách giữ **cả** `OrdersModule` và `PaymentsModule`.
-5. **Đồng bộ Prisma:** chạy `npx prisma generate`, sửa vấn đề `EPERM` do Windows khóa query engine bằng cách dừng tiến trình đang sử dụng; sau đó `npm run build` thành công.
-6. **Đồng bộ database:** áp dụng migration `20261015153543_add_products_orders` với `npx prisma migrate deploy`.
-7. **Chẩn đoán lỗi tạo Order:** gặp `P2028` (không bắt đầu transaction kịp thời); kiểm tra Docker, PostgreSQL, `PrismaService` và chạy thử transaction độc lập thành công. Lỗi không còn xuất hiện trong lần gọi API tiếp theo; **chưa kết luận được nguyên nhân gốc của P2028**.
-8. **Xử lý lỗi 404 Product:** phát hiện bảng `Product` trống dù `GET /products` trả 10 mẫu; kiểm tra seed của Task 6, bổ sung dữ liệu phát triển, tạo Order thành công (`PENDING`, tồn kho giảm).
-9. **Tích hợp Payment với PostgreSQL:** thêm kiểm tra tồn tại/ownership/trạng thái Order và cập nhật Order bằng Prisma sau Mock Gateway.
-10. **Kiểm thử end-to-end thủ công qua Swagger + SQL:** WALLET `PAID`, CARD `PAID`, Mock failed `PAYMENT_FAILED` đều có trạng thái trong PostgreSQL.
-11. **Cập nhật kiểm thử:** sửa unit test cho `PrismaService` mới, `userId` từ JWT, bổ sung controller test; chỉnh kỳ vọng test route gốc cho đúng thông điệp BrewLite.
-12. **Xác nhận cuối:** khôi phục Mock Gateway về `PAID`, chạy lại Jest **10/10 PASS** và `npm run build` **PASS**.
-
-## 9. Lỗi từng gặp và cách kiểm tra
-
-| Triệu chứng | Nguyên nhân đã biết/cần kiểm tra | Hướng xử lý |
-|---|---|---|
-| `Property 'product'/'order' does not exist` | Prisma Client cũ sau merge schema | `npx prisma generate` rồi build lại |
-| `EPERM ... query_engine-windows.dll.node` | DLL không thể ghi đè; có thể bị tiến trình khóa | Dừng backend/Node đang giữ DLL và thử generate lại |
-| `P2028 Unable to start a transaction` | Prisma không bắt đầu transaction kịp | Kiểm tra kết nối/pool, PostgreSQL, log; test transaction riêng. Nguyên nhân gốc phiên này chưa xác định |
-| `404 Một hoặc nhiều sản phẩm không tồn tại` | Bảng `Product` trống | Kiểm tra SQL và seed dữ liệu phát triển |
-| `Nest can't resolve dependencies of PaymentsController` | Test module chưa mock `PaymentsService` | Thêm provider mock vào controller spec |
-| `Expected Hello World!` | Chuỗi kỳ vọng cũ khác lời chào backend | Sửa assertion khớp hành vi hiện có |
-
-## 10. Phạm vi chưa hoàn thành / việc phối hợp với nhóm
-
-- **Task 9:** `GET /orders/me`, xác nhận đơn hàng và quy trình demo/bàn giao: không coi là đã triển khai trong tài liệu này.
-- **Task 10.2:** `Idempotency-Key` bảo đảm request thanh toán lặp không bị xử lý lặp: **chưa triển khai ở Task 8**.
-- **Task 10.3:** transaction + optimistic locking và kiểm thử đặt hàng đồng thời theo yêu cầu đầy đủ: cần triển khai/đánh giá riêng. Task 6 hiện có transaction và cập nhật tồn kho có điều kiện, nhưng không đồng nghĩa đã hoàn thành toàn bộ Task 10.3.
-- **Kết nối Frontend–Backend, Docker Compose toàn hệ thống, README chung:** do các phần việc khác của nhóm đảm nhiệm; không tuyên bố đã kiểm thử end-to-end qua UI.
-- **Hoàn tồn kho hoặc giữ giỏ hàng khi thanh toán thất bại:** cần nhóm thống nhất và triển khai theo yêu cầu nghiệp vụ.
-
-## 11. Chuẩn bị Git commit / Pull Request
-
-Chạy tại `backend`:
-
-```powershell
-git status
-git diff --cached --stat
-git diff --cached -- src/payments/mock-payment.gateway.ts
-```
-
-Đảm bảo bản staged **không còn** `return 'PAYMENT_FAILED'` cố định; không commit `.env` hoặc file thử nghiệm tạm. Khi đã kiểm tra thay đổi:
-
-```powershell
-git add src/app.module.ts src/app.controller.spec.ts src/payments/
-# Nếu đặt tài liệu này trong backend/:
-git add README_TASK8.md
-
-git commit -m "feat: implement Task 8 mock payment with order status updates"
-git push -u origin feature/task8-payment
-```
-
-Tạo Pull Request từ **`feature/task8-payment` → `develop`** và để nhóm review trước khi merge.
-
----
-
-**Nguồn yêu cầu:** `BrewLite-CongNghePhanMem.pdf`, Assignment 1 — Task 6, 7, 8, 9, 10. **Nguồn tiến độ/kết quả:** các lệnh, log Jest/Prisma/NestJS và phản hồi API/SQL được ghi nhận trong quá trình triển khai Task 8. Tài liệu phản ánh môi trường phát triển đã thử, không bảo đảm giống hệt trên mọi máy.
+- Chưa triển khai xử lý Idempotency-Key.
+- Chưa chống xử lý lặp yêu cầu thanh toán.
+- Các chức năng trên sẽ được hoàn thiện ở Task 10.2.
+- Mock Gateway không xử lý tiền thật.

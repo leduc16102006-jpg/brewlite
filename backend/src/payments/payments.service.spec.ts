@@ -20,13 +20,6 @@ describe('PaymentsService', () => {
     charge: jest.fn(),
   };
 
-  const mockPrisma = {
-    order: {
-      findUnique: jest.fn(),
-      updateMany: jest.fn(),
-    },
-  };
-
   const pendingOrder = {
     id: 1,
     userId: 1,
@@ -34,8 +27,48 @@ describe('PaymentsService', () => {
     total: 94000,
   };
 
+  // Mock operations inside Prisma transaction
+  const mockTx = {
+    order: {
+      updateMany: jest.fn(),
+    },
+    payment: {
+      create: jest.fn(),
+    },
+  };
+
+  const mockPrisma = {
+    order: {
+      findUnique: jest.fn(),
+    },
+    $transaction: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.resetAllMocks();
+
+    mockPrisma.order.findUnique.mockResolvedValue({
+      ...pendingOrder,
+    });
+
+    mockTx.order.updateMany.mockResolvedValue({
+      count: 1,
+    });
+
+    mockTx.payment.create.mockResolvedValue({
+      id: 1,
+      orderId: 1,
+      amount: 94000,
+      method: 'WALLET',
+      status: 'PAID',
+    });
+
+    // Execute transaction callback with mocked tx
+    mockPrisma.$transaction.mockImplementation(
+      async (
+        callback: (tx: typeof mockTx) => Promise<unknown>,
+      ) => callback(mockTx),
+    );
 
     const module: TestingModule =
       await Test.createTestingModule({
@@ -52,18 +85,12 @@ describe('PaymentsService', () => {
         ],
       }).compile();
 
-    service = module.get<PaymentsService>(PaymentsService);
-
-    mockPrisma.order.findUnique.mockResolvedValue({
-      ...pendingOrder,
-    });
-
-    mockPrisma.order.updateMany.mockResolvedValue({
-      count: 1,
-    });
+    service = module.get<PaymentsService>(
+      PaymentsService,
+    );
   });
 
-  it('WALLET: thanh toán thành công', async () => {
+  it('WALLET: thanh toán và lưu Payment thành công', async () => {
     mockGateway.charge.mockResolvedValue('PAID');
 
     const result = await service.createPayment(userId, {
@@ -78,18 +105,30 @@ describe('PaymentsService', () => {
       PaymentMethod.WALLET,
     );
 
-    expect(mockPrisma.order.updateMany).toHaveBeenCalledWith({
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+
+    expect(mockTx.order.updateMany).toHaveBeenCalledWith({
       where: {
         id: 1,
+        userId: 1,
         status: 'PENDING',
       },
       data: {
         status: 'PAID',
       },
     });
+
+    expect(mockTx.payment.create).toHaveBeenCalledWith({
+      data: {
+        orderId: 1,
+        amount: 94000,
+        method: PaymentMethod.WALLET,
+        status: 'PAID',
+      },
+    });
   });
 
-  it('CARD: thanh toán thành công', async () => {
+  it('CARD: thanh toán và lưu Payment thành công', async () => {
     mockGateway.charge.mockResolvedValue('PAID');
 
     const result = await service.createPayment(userId, {
@@ -100,12 +139,17 @@ describe('PaymentsService', () => {
     expect(result.status).toBe('PAID');
     expect(result.method).toBe(PaymentMethod.CARD);
 
-    expect(mockGateway.charge).toHaveBeenCalledWith(
-      PaymentMethod.CARD,
-    );
+    expect(mockTx.payment.create).toHaveBeenCalledWith({
+      data: {
+        orderId: 1,
+        amount: 94000,
+        method: PaymentMethod.CARD,
+        status: 'PAID',
+      },
+    });
   });
 
-  it('Thanh toán thất bại: PAYMENT_FAILED', async () => {
+  it('Thanh toán thất bại: lưu PAYMENT_FAILED', async () => {
     mockGateway.charge.mockResolvedValue(
       'PAYMENT_FAILED',
     );
@@ -116,14 +160,23 @@ describe('PaymentsService', () => {
     });
 
     expect(result.status).toBe('PAYMENT_FAILED');
-    expect(result.message).toBe('Thanh toán thất bại');
 
-    expect(mockPrisma.order.updateMany).toHaveBeenCalledWith({
+    expect(mockTx.order.updateMany).toHaveBeenCalledWith({
       where: {
         id: 1,
+        userId: 1,
         status: 'PENDING',
       },
       data: {
+        status: 'PAYMENT_FAILED',
+      },
+    });
+
+    expect(mockTx.payment.create).toHaveBeenCalledWith({
+      data: {
+        orderId: 1,
+        amount: 94000,
+        method: PaymentMethod.WALLET,
         status: 'PAYMENT_FAILED',
       },
     });
@@ -140,9 +193,10 @@ describe('PaymentsService', () => {
     ).rejects.toThrow(NotFoundException);
 
     expect(mockGateway.charge).not.toHaveBeenCalled();
+    expect(mockTx.payment.create).not.toHaveBeenCalled();
   });
 
-  it('Không được thanh toán Order của người khác: 403', async () => {
+  it('Không được thanh toán Order người khác: 403', async () => {
     mockPrisma.order.findUnique.mockResolvedValue({
       ...pendingOrder,
       userId: 2,
@@ -156,6 +210,7 @@ describe('PaymentsService', () => {
     ).rejects.toThrow(ForbiddenException);
 
     expect(mockGateway.charge).not.toHaveBeenCalled();
+    expect(mockTx.payment.create).not.toHaveBeenCalled();
   });
 
   it('Order đã PAID không được thanh toán lại', async () => {
@@ -172,12 +227,13 @@ describe('PaymentsService', () => {
     ).rejects.toThrow(BadRequestException);
 
     expect(mockGateway.charge).not.toHaveBeenCalled();
+    expect(mockTx.payment.create).not.toHaveBeenCalled();
   });
 
-  it('Order thay đổi trạng thái trong lúc thanh toán', async () => {
+  it('Order thay đổi trạng thái thì không lưu Payment', async () => {
     mockGateway.charge.mockResolvedValue('PAID');
 
-    mockPrisma.order.updateMany.mockResolvedValue({
+    mockTx.order.updateMany.mockResolvedValue({
       count: 0,
     });
 
@@ -187,5 +243,7 @@ describe('PaymentsService', () => {
         method: PaymentMethod.WALLET,
       }),
     ).rejects.toThrow(BadRequestException);
+
+    expect(mockTx.payment.create).not.toHaveBeenCalled();
   });
 });
