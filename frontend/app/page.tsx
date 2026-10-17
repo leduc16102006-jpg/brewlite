@@ -87,7 +87,7 @@ export default function Home() {
     const data: Product[] = await response.json();
     setProducts(data);
   } catch {
-    // Dữ liệu tạm thời để tiếp tục làm frontend
+    // Dữ liệu tạm thời
     setProducts([
       { id: 1, name: "Americano", price: 39000, imageUrl: "/images/americano.jpg" },
       { id: 2, name: "Latte", price: 55000, imageUrl: "/images/latte.jpg" },
@@ -129,12 +129,12 @@ export default function Home() {
       <header className="border-b border-[#e9dfd4] bg-[#faf7f2]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 md:px-10">
           <a href="/" className="text-2xl font-black tracking-tight">
-            brew<span className="text-[#a16b4b]">lite.</span>
+            BREW<span className="text-[#a16b4b]">LITE</span>
           </a>
 
-          <span className="hidden text-sm text-[#806e62] sm:block">
+          {/* <span className="hidden text-sm text-[#806e62] sm:block">
             Your daily coffee ritual
-          </span>
+          </span> */}
 
           <button
             onClick={() =>
@@ -164,7 +164,8 @@ export default function Home() {
           <p className="mt-6 max-w-md leading-7 text-[#806e62]">
             Tìm thức uống yêu thích của bạn và biến mỗi ngày thành một trải
             nghiệm thật đặc biệt.
-          </p>
+          </p> 
+          
 
           <button
             onClick={() =>
@@ -197,9 +198,9 @@ export default function Home() {
           <p className="mb-2 text-sm font-bold uppercase tracking-[0.2em] text-[#a16b4b]">
             Find your favorite
           </p>
-          <h2 className="text-3xl font-black md:text-4xl">Menu của chúng mình</h2>
+          <h2 className="text-3xl font-black md:text-4xl">MENU</h2>
           <p className="mt-3 text-[#806e62]">
-            Những lựa chọn dành riêng cho ngày hôm nay.
+            Những lựa chọn dành riêng cho bạn ngày hôm nay.
           </p>
         </div>
 
@@ -236,7 +237,7 @@ export default function Home() {
         {loading && (
           <div className="py-20 text-center">
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-[#e5d8ca] border-t-[#a16b4b]" />
-            <p className="text-[#806e62]">Đang pha menu cho mik...</p>
+            <p className="text-[#806e62]">Đang pha menu cho bạn...</p>
           </div>
         )}
 
@@ -300,7 +301,7 @@ export default function Home() {
             <p className="text-5xl">🔎</p>
             <h3 className="mt-4 text-xl font-bold">Chưa tìm thấy món phù hợp</h3>
             <p className="mt-2 text-[#806e62]">
-              Mik thử từ khóa khác hoặc chọn danh mục khác nha.
+              Bạn thử từ khóa khác hoặc chọn danh mục khác nha.
             </p>
             <button
               onClick={() => {
@@ -315,7 +316,7 @@ export default function Home() {
         )}
 
         <p className="mt-8 text-center text-sm text-[#a49385]">
-          BrewLite · Sip slow, live well.
+          BrewLite · Chậm một chút, yêu nhiều hơn.
         </p>
       </section>
 
