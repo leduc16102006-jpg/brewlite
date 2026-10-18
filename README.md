@@ -135,3 +135,66 @@ Dùng POST /payments để thực hiện thanh toán cho đơn hàng đó:
 
 Đơn hàng chuyển trạng thái sang PAID và một bản ghi giao dịch mới được lưu vào bảng Payment.
 
+Task 10.2 – Thanh toán Idempotent
+
+1. Mục tiêu
+  Triển khai cơ chế thanh toán idempotent nhằm đảm bảo một yêu cầu thanh toán khi được gửi nhiều lần cũng không làm hệ thống xử lý thanh toán trùng lặp hoặc cập nhật đơn hàng nhiều lần.
+  Hệ thống sử dụng header Idempotency-Key để nhận diện mỗi yêu cầu thanh toán.
+
+2. Công nghệ sử dụng
+  NestJS: Xây dựng API xử lý thanh toán.
+  PostgreSQL: Lưu trữ thông tin thanh toán và trạng thái đơn hàng.
+  Prisma ORM: Truy vấn và cập nhật dữ liệu.
+  Mock Payment Gateway: Giả lập quá trình xử lý thanh toán.
+  Idempotency-Key: Nhận diện yêu cầu thanh toán và hạn chế xử lý trùng lặp.
+
+3. API thanh toán
+  Phương thức: POST
+  Endpoint: /payments
+  Header bắt buộc:
+    Idempotency-Key: test-payment-001
+  Request Body mẫu:
+    {
+      "orderId": 1,
+      "method": "WALLET"
+    }
+  Lưu ý: Đơn hàng phải tồn tại, thuộc quyền sở hữu của người dùng và đang ở trạng thái cho phép thanh toán.
+
+4. Cơ chế xử lý:
+  Kiểm tra header Idempotency-Key. Nếu thiếu key, API trả về lỗi 400 Bad Request.
+  Tìm kiếm bản ghi thanh toán theo key.
+  Nếu key đã tồn tại và thuộc cùng yêu cầu, trả về kết quả thanh toán đã lưu mà không gọi cổng thanh toán lần nữa.
+  Nếu key đã được sử dụng cho đơn hàng hoặc phương thức thanh toán khác, API trả về 409 Conflict.
+  Nếu key chưa tồn tại, kiểm tra đơn hàng và quyền sở hữu.
+  Tạo bản ghi thanh toán với trạng thái PROCESSING.
+  Gọi Mock Payment Gateway để giả lập thanh toán.
+  Cập nhật trạng thái thanh toán và đơn hàng trong transaction.
+
+5. Các trường hợp kiểm thử:
+  Gửi yêu cầu thanh toán hợp lệ với key mới: Thanh toán được xử lý
+  Gửi lại cùng key và cùng nội dung yêu cầu: Trả về kết quả cũ, không gọi gateway lần nữa
+  Dùng cùng key nhưng đổi đơn hàng hoặc phương thức thanh toán: Trả về 409 Conflict
+  Thanh toán đơn hàng đã ở trạng thái PAID bằng key mới: Từ chối thanh toán lại
+  Đơn hàng không tồn tại: Trả về 404 Not Found
+  Người dùng không sở hữu đơn hàng: Trả về 403 Forbidden
+
+6. Kiểm tra dữ liệu:
+  Có thể sử dụng pgAdmin hoặc PostgreSQL Query Tool để kiểm tra bản ghi thanh toán:
+    SELECT 
+          id,
+          "orderId",
+          amount,
+          method,
+          status,
+          "idempotencyKey"
+    FROM "Payment"
+    WHERE "idempotencyKey" = 'test-payment-001';
+  Khi gửi cùng một yêu cầu hai lần với cùng key, hệ thống cần đảm bảo chỉ có một bản ghi thanh toán tương ứng.
+
+7. Kết quả mong đợi: 
+  Hạn chế việc xử lý lặp lại một yêu cầu thanh toán.
+  Không gọi Mock Payment Gateway lần nữa khi yêu cầu trùng đã hoàn tất.
+  Ngăn thanh toán lại đơn hàng đã ở trạng thái PAID.
+  Phát hiện trường hợp sử dụng lại key cho nội dung yêu cầu khác.
+  Lưu trữ thông tin thanh toán để phục vụ việc kiểm tra và đối soát.
+
