@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Headers,
   Post,
   Req,
   UseGuards,
@@ -35,10 +36,12 @@ export class PaymentsController {
   async createPayment(
     @Req() req: AuthenticatedRequest,
     @Body() dto: CreatePaymentDto,
+    @Headers('idempotency-key') idempotencyKey: string,
   ) {
     return this.paymentsService.createPayment(
       req.user.userId,
       dto,
+      idempotencyKey,
     );
   }
 }
