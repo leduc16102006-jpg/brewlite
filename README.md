@@ -146,3 +146,73 @@ JSON
   ]
 }
 Nhấn Execute. Hệ thống trả về mã trạng thái 201 Created cùng mã đơn hàng và trạng thái PENDING.
+
+
+# task 10.1: Quản lý trạng thái đơn hàng
+
+1. **Mục tiêu**
+  Xây dựng chức năng quản lý trạng thái đơn hàng cho hệ thống BrewLite bằng NestJS và Prisma. Chức năng kiểm tra tính hợp lệ của các lần chuyển trạng thái, đồng thời cập nhật tồn kho khi đơn hàng bị hủy hoặc thanh toán thất bại.
+
+2. **Các trạng thái đơn hàng**
+  Hệ thống hỗ trợ 7 trạng thái:
+  PENDING: Đơn hàng đã được tạo, đang chờ thanh toán.
+  PAID: Đơn hàng đã thanh toán thành công.
+  PREPARING: Đơn hàng đang được chuẩn bị.
+  READY: Đơn hàng đã sẵn sàng để giao hoặc nhận.
+  COMPLETED: Đơn hàng đã hoàn tất.
+  PAYMENT_FAILED: Thanh toán thất bại.
+  CANCELLED: Đơn hàng đã bị hủy.
+
+3. **Quy tắc chuyển trạng thái**
+  PENDING: PAID, PAYMENT_FAILED, CANCELLED
+  PAID: PREPARING, CANCELLED
+  PREPARING: READY
+  READY: COMPLETED 
+  PAYMENT_FAILED: PENDING, CANCELLED
+  COMPLETED: Không được chuyển tiếp
+  CANCELLED: Không được chuyển tiếp
+
+4. **API cập nhật trạng thái đơn hàng**
+  Phương thức: PATCH
+  Đường dẫn: /orders/:id/status
+  Xác thực: Sử dụng JWT Bearer Token.
+  Kiểu dữ liệu: JSON.
+  Ví dụ yêu cầu cập nhật trạng thái:
+  {
+    "status": "PREPARING"
+  }
+  Trong đó, id là mã đơn hàng cần cập nhật. Trường status phải là một trong các trạng thái được hệ thống hỗ trợ.
+
+5. **Xử lý tồn kho**
+  Khi đơn hàng chuyển từ PENDING sang PAYMENT_FAILED hoặc CANCELLED, hệ thống hoàn trả số lượng sản phẩm đã giữ cho đơn hàng về kho.
+  Khi đơn hàng chuyển từ PAYMENT_FAILED sang PENDING, hệ thống kiểm tra tồn kho và trừ lại số lượng sản phẩm cần thiết.
+  Nếu tồn kho không đủ, hệ thống từ chối chuyển trạng thái.
+  Việc cập nhật trạng thái đơn hàng và tồn kho được thực hiện trong giao dịch cơ sở dữ liệu để hạn chế tình trạng dữ liệu không nhất quán.
+
+6. **Xử lý lỗi**
+  Hệ thống xử lý các trường hợp:
+    Đơn hàng không tồn tại.
+    Chuyển trạng thái không hợp lệ.
+    Giá trị trạng thái không thuộc danh sách cho phép.
+    Tồn kho không đủ khi thử lại đơn hàng.
+    Trạng thái đơn hàng đã bị thay đổi đồng thời bởi một yêu cầu khác.
+
+7. **Kiểm thử đơn vị (Unit Test)**
+  Các bài kiểm thử được xây dựng cho OrdersService nhằm kiểm tra:
+  Chuyển trạng thái hợp lệ.
+  Từ chối chuyển trạng thái không hợp lệ.
+  Hoàn trả tồn kho khi thanh toán thất bại hoặc hủy đơn.
+  Thử lại đơn hàng khi đủ hoặc không đủ tồn kho.
+  Xử lý đơn hàng không tồn tại.
+  Xử lý xung đột khi trạng thái bị thay đổi đồng thời.
+  Chạy kiểm thử riêng cho Task 10.1:
+    npm test -- orders.service.spec.ts
+  Chạy toàn bộ kiểm thử backend:
+    npm test -- --runInBand
+
+8. **Các tệp triển khai chính:**
+  src/orders/orders.controller.ts: Tiếp nhận yêu cầu cập nhật trạng thái đơn hàng.
+  src/orders/orders.service.ts: Xử lý nghiệp vụ và kiểm tra quy tắc chuyển trạng thái.
+  src/orders/dto/update-order-status.dto.ts: Kiểm tra dữ liệu trạng thái gửi lên.
+  src/orders/orders.service.spec.ts: Chứa các bài kiểm thử đơn vị cho nghiệp vụ quản lý trạng thái đơn hàng.
+
