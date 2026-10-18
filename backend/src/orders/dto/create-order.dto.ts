@@ -1,4 +1,5 @@
 
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMinSize,
   IsArray,
@@ -12,14 +13,17 @@ import {
 import { Type } from 'class-transformer';
 
 export class CreateOrderItemDto {
+  @ApiProperty({ example: 1, minimum: 1 })
   @IsInt()
   @Min(1)
   productId: number;
 
+  @ApiProperty({ example: 2, minimum: 1 })
   @IsInt()
   @Min(1)
   qty: number;
 
+  @ApiPropertyOptional({ example: 'M', maxLength: 50 })
   @IsOptional()
   @IsString()
   @MaxLength(50)
@@ -27,6 +31,7 @@ export class CreateOrderItemDto {
 }
 
 export class CreateOrderDto {
+  @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
