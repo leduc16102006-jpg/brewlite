@@ -28,19 +28,21 @@ Hệ thống được tổ chức theo mô hình Monorepo gồm 2 phân hệ đ�
 
 ---
 
-## 3. Danh sách API Backend đã hoàn thành & Đã kiểm thử
+## 3. Danh sách Tính năng & API đã hoàn thành (Đã kiểm thử)
 
-Hệ thống cung cấp tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api/docs`
+Tài liệu Swagger tương tác trực tiếp cho Backend tại: `http://localhost:3000/api/docs`
 
-| Phân hệ | Phương thức | Endpoint | Xác thực | Mô tả chi tiết & Nghiệp vụ | Người thực hiện |
+| Phân hệ / Task | Nền tảng / Phương thức | Endpoint / Route | Xác thực | Mô tả chi tiết & Nghiệp vụ | Người thực hiện |
 | :--- | :---: | :--- | :---: | :--- | :---: |
-| **Task 2: Sản phẩm** | `GET` | `/products` | Public | Lấy danh sách toàn bộ menu đồ uống (id, tên, giá, ảnh, số lượng tồn kho). | Bạn C |
-| | `GET` | `/products/:id` | Public | Lấy thông tin chi tiết của một sản phẩm theo ID. | Bạn C |
-| **Task 7: Xác thực** | `POST` | `/auth/register` | Public | Đăng ký tài khoản mới (Mật khẩu được băm qua Bcrypt). | Bạn E |
-| | `POST` | `/auth/login` | Public | Đăng nhập hệ thống, kiểm tra mật khẩu và trả về chuỗi `accessToken` (JWT). | Bạn E |
-| | `GET` | `/auth/me` | Bearer JWT | Trích xuất thông tin người dùng từ token (Bảo vệ bởi `JwtAuthGuard`). | Bạn E |
-| **Task 6: Đơn hàng** | `POST` | `/orders` | Bearer JWT | Tạo đơn hàng mới (`PENDING`), validate đầu vào qua `class-validator`, trừ tồn kho tự động trong Transaction, tính tổng tiền trên server. | Bạn F |
-| **Task 8: Thanh toán** | `POST` | `/payments` | Bearer JWT | Thanh toán giả lập qua Ví (`WALLET`) hoặc Thẻ (`CARD`). Cập nhật đơn hàng sang `PAID` hoặc `PAYMENT_FAILED` và lưu lịch sử giao dịch vào bảng `Payment`. *(Chi tiết xem thêm tại `backend/README_TASK8.md`)* | Bạn F |
+| **Task 2: Sản phẩm** | Backend (`GET`) | `/products` | Public | Lấy danh sách toàn bộ menu đồ uống (id, tên, giá, ảnh, số lượng tồn kho từ CSDL PostgreSQL). | Bạn C |
+| | Backend (`GET`) | `/products/:id` | Public | Lấy thông tin chi tiết của một sản phẩm theo ID. | Bạn C |
+| **Task 3: Giao diện Menu** | Frontend (Next.js) | `/` (Trang chủ) | Public | Hiển thị menu đồ uống dạng lưới (Grid), tích hợp thanh tìm kiếm, bộ lọc danh mục theo tab, có trạng thái Loading và Empty state. | Bạn D |
+| **Task 4: Chi tiết & Tùy chọn** | Frontend (Next.js) | Modal Chi tiết | Public | Modal tùy chỉnh món: chọn Size (S/M/L), chọn Topping (Trân châu, Extra shot, Kem cheese), tự động tính và hiển thị giá cộng dồn theo thời gian thực. | Bạn D |
+| **Task 7: Xác thực** | Backend (`POST`) | `/auth/register` | Public | Đăng ký tài khoản người dùng mới (Mật khẩu được băm an toàn qua Bcrypt). | Bạn E |
+| | Backend (`POST`) | `/auth/login` | Public | Đăng nhập hệ thống, kiểm tra mật khẩu và trả về chuỗi `accessToken` (JWT). | Bạn E |
+| | Backend (`GET`) | `/auth/me` | Bearer JWT | Trích xuất thông tin người dùng từ token (Bảo vệ bởi `JwtAuthGuard`). | Bạn E |
+| **Task 6: Đơn hàng** | Backend (`POST`) | `/orders` | Bearer JWT | Tạo đơn hàng mới (`PENDING`), validate dữ liệu đầu vào qua `class-validator`, trừ tồn kho đồng thời trong Transaction, tự tính tổng tiền trên máy chủ. | Bạn F |
+| **Task 8: Thanh toán** | Backend (`POST`) | `/payments` | Bearer JWT | Thanh toán giả lập qua Ví (`WALLET`) hoặc Thẻ (`CARD`). Tự động cập nhật đơn hàng sang `PAID` hoặc `PAYMENT_FAILED` và lưu lịch sử giao dịch vào bảng `Payment`. *(Chi tiết xem thêm tại `backend/README_TASK8.md`)* | Bạn F |
 
 ---
 
