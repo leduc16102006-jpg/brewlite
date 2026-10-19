@@ -9,6 +9,8 @@ import {
 
 import {
   ApiBearerAuth,
+  ApiHeader,
+  ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
 
@@ -33,6 +35,16 @@ export class PaymentsController {
   ) {}
 
   @Post()
+  @ApiOperation({ summary: 'Thanh toán đơn hàng (Idempotent)' })
+  @ApiHeader({
+    name: 'idempotency-key',
+    description: 'Khóa định danh chống thanh toán trùng lặp',
+    required: true,
+    schema: {
+      type: 'string',
+      example: 'ORDER-PAY-001',
+    },
+  })
   async createPayment(
     @Req() req: AuthenticatedRequest,
     @Body() dto: CreatePaymentDto,

@@ -1,5 +1,4 @@
 
-import { Test, TestingModule } from '@nestjs/testing';
 import {
   BadRequestException,
   ConflictException,
@@ -86,22 +85,11 @@ describe('PaymentsService', () => {
       ) => callback(mockTx),
     );
 
-    const module: TestingModule =
-      await Test.createTestingModule({
-        providers: [
-          PaymentsService,
-          {
-            provide: MockPaymentGateway,
-            useValue: mockGateway,
-          },
-          {
-            provide: PrismaService,
-            useValue: mockPrisma,
-          },
-        ],
-      }).compile();
-
-    service = module.get<PaymentsService>(PaymentsService);
+    // Thay thế bằng khởi tạo thuần:
+    service = new PaymentsService(
+      mockGateway as any,
+      mockPrisma as any,
+    );
   });
 
   it('WALLET: thanh toán thành công và lưu Payment', async () => {
