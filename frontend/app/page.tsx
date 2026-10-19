@@ -263,10 +263,12 @@ export default function Home() {
                 key={product.id}
                 className="group overflow-hidden rounded-3xl border border-[#eee4da] bg-white transition duration-300 hover:-translate-y-1 hover:shadow-xl"
               >
-                <div className="relative flex h-56 items-center justify-center overflow-hidden bg-[#f0e7dc]">
-                  <span className="text-7xl transition duration-300 group-hover:scale-110">
-                    ☕
-                  </span>
+                <div className="relative h-56 overflow-hidden bg-[#f0e7dc]">
+                  <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                  />
 
                   <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-[#806e62]">
                     {getCategory(product.name)}
@@ -347,8 +349,12 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="flex h-32 items-center justify-center rounded-2xl bg-[#e9ddce] text-7xl">
-            ☕
+          <div className="h-40 overflow-hidden rounded-2xl bg-[#e9ddce]">
+            <img
+              src={selectedProduct.imageUrl}
+              alt={selectedProduct.name}
+              className="h-full w-full object-cover"
+            />
           </div>
 
           <h2 id="product-title" className="mt-5 text-2xl font-black">
