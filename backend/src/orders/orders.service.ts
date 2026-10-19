@@ -27,82 +27,85 @@ export class OrdersService {
     CANCELLED: [],
   };
 
-  // TASK 6: Tạo đơn hàng và trừ tồn kho.
+// TASK 6: Tạo đơn hàng và trừ tồn kho (Bản chuẩn hỗ trợ đa kích cỡ)
   async create(userId: number, dto: CreateOrderDto) {
     if (!dto.items?.length) {
       throw new BadRequestException('Đơn hàng phải có ít nhất một sản phẩm');
     }
 
-    const productIds = dto.items.map((item) => item.productId);
-
-    if (new Set(productIds).size !== productIds.length) {
+    const itemKeys = dto.items.map(
+      (item) => `${item.productId}_${item.size || 'DEFAULT'}`,
+    );
+    if (new Set(itemKeys).size !== itemKeys.length) {
       throw new BadRequestException(
-        'Mỗi sản phẩm chỉ được xuất hiện một lần trong đơn hàng',
+        'Sản phẩm cùng kích cỡ không được lặp lại trong đơn hàng, vui lòng tăng số lượng',
       );
     }
+
+    const uniqueProductIds = [...new Set(dto.items.map((item) => item.productId))];
 
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
         where: { id: userId },
         select: { id: true },
       });
-
       if (!user) {
         throw new UnauthorizedException('Tài khoản không tồn tại');
       }
 
       const products = await tx.product.findMany({
-        where: { id: { in: productIds } },
+        where: { id: { in: uniqueProductIds } },
       });
 
-      if (products.length !== productIds.length) {
-        throw new NotFoundException(
-          'Một hoặc nhiều sản phẩm không tồn tại',
-        );
+      if (products.length !== uniqueProductIds.length) {
+        throw new NotFoundException('Một hoặc nhiều sản phẩm không tồn tại');
       }
 
-      const productMap = new Map(
-        products.map((product) => [product.id, product]),
-      );
+      const productMap = new Map(products.map((p) => [p.id, p]));
+
+      const productQtyMap = new Map<number, number>();
+      for (const item of dto.items) {
+        const currentQty = productQtyMap.get(item.productId) || 0;
+        productQtyMap.set(item.productId, currentQty + item.qty);
+      }
 
       let total = 0;
-
       const orderItems = dto.items.map((item) => {
-        const product = productMap.get(item.productId)!;
+        const product = productMap.get(item.productId);
+        if (!product) {
+          throw new NotFoundException('Sản phẩm không tồn tại');
+        }
 
-        if (product.stock < item.qty) {
+        const totalRequiredQty = productQtyMap.get(item.productId) || 0;
+        if (product.stock < totalRequiredQty) {
           throw new BadRequestException(
             `Sản phẩm "${product.name}" không đủ tồn kho`,
           );
         }
 
-        const lineTotal = product.price * item.qty;
+        const lineTotal = Number(product.price) * item.qty;
         total += lineTotal;
 
         return {
           productId: product.id,
           qty: item.qty,
-          size: item.size,
+          size: item.size || null,
           lineTotal,
         };
       });
 
-      // Cập nhật kho có điều kiện để tránh bán vượt tồn kho.
-      for (const item of dto.items) {
+      for (const [productId, qtyToDeduct] of productQtyMap.entries()) {
         const result = await tx.product.updateMany({
           where: {
-            id: item.productId,
-            stock: { gte: item.qty },
+            id: productId,
+            stock: { gte: qtyToDeduct },
           },
           data: {
-            stock: { decrement: item.qty },
+            stock: { decrement: qtyToDeduct },
           },
         });
-
         if (result.count !== 1) {
-          throw new BadRequestException(
-            'Tồn kho đã thay đổi. Vui lòng thử lại',
-          );
+          throw new BadRequestException('Tồn kho đã thay đổi. Vui lòng thử lại');
         }
       }
 
@@ -111,15 +114,9 @@ export class OrdersService {
           userId,
           total,
           status: 'PENDING',
-          items: {
-            create: orderItems,
-          },
+          items: { create: orderItems },
         },
-        include: {
-          items: {
-            include: { product: true },
-          },
-        },
+        include: { items: { include: { product: true } } },
       });
     });
   }

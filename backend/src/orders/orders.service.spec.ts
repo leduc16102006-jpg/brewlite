@@ -1,9 +1,7 @@
-
 import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 
 import { OrdersService } from './orders.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -28,17 +26,10 @@ describe('OrdersService - Task 10.1', () => {
     ),
   };
 
-  beforeEach(async () => {
+  beforeEach(() => {
     jest.clearAllMocks();
-
-    const module = await Test.createTestingModule({
-      providers: [
-        OrdersService,
-        { provide: PrismaService, useValue: prisma },
-      ],
-    }).compile();
-
-    service = module.get(OrdersService);
+    // Khởi tạo trực tiếp Service với Prisma Mock thuần Unit Test
+    service = new OrdersService(prisma as unknown as PrismaService);
   });
 
   it.each([
