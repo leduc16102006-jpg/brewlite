@@ -93,7 +93,19 @@ export class PaymentsService {
           status,
         },
       });
-    });
+      if (status === 'PAID') {
+      const points = Math.floor(order.total / 10_000);
+
+      await tx.loyaltyTransaction.create({
+        data: {
+          userId: order.userId,
+          orderId: order.id,
+          points,
+        },
+      });
+      }
+    }
+  );
 
     return {
       orderId: order.id,

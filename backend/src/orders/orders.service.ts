@@ -69,7 +69,7 @@ export class OrdersService {
         productQtyMap.set(item.productId, currentQty + item.qty);
       }
 
-      let total = 0;
+      let subtotal = 0;
       const orderItems = dto.items.map((item) => {
         const product = productMap.get(item.productId);
         if (!product) {
@@ -84,7 +84,7 @@ export class OrdersService {
         }
 
         const lineTotal = Number(product.price) * item.qty;
-        total += lineTotal;
+        subtotal += lineTotal;
 
         return {
           productId: product.id,
@@ -93,6 +93,68 @@ export class OrdersService {
           lineTotal,
         };
       });
+
+      let promotionId: number | null = null;
+      let discountAmount = 0;
+
+      if (dto.promotionCode?.trim()) {
+        const code = dto.promotionCode.trim().toUpperCase();
+
+        const promotion = await tx.promotion.findUnique({
+        where: { code },
+        });
+
+        if (!promotion) {
+          throw new BadRequestException('Mã khuyến mãi không tồn tại');
+        }
+
+        const now = new Date();
+
+        if (
+          !promotion.isActive ||
+          now < promotion.startsAt ||
+          now > promotion.expiresAt
+        ) {
+            throw new BadRequestException(
+            'Mã khuyến mãi không hoạt động hoặc đã hết hạn',
+            );
+          }
+
+        if (subtotal < promotion.minOrderAmount) {
+          throw new BadRequestException(
+          `Đơn hàng phải đạt tối thiểu ${promotion.minOrderAmount} đồng`,
+          );
+        }
+
+        if (promotion.value <= 0) {
+          throw new BadRequestException('Giá trị khuyến mãi không hợp lệ');
+        }
+
+        if (promotion.type === 'PERCENT') {
+          discountAmount = Math.floor(
+          (subtotal * promotion.value) / 100,
+          );
+
+          if (promotion.maxDiscount !== null) {
+            discountAmount = Math.min(
+              discountAmount,
+              promotion.maxDiscount,
+            );
+          }
+        } else if (promotion.type === 'FIXED') {
+            discountAmount = promotion.value;
+        } else {
+          throw new BadRequestException(
+          'Loại khuyến mãi không hợp lệ',
+          );
+        }
+
+        // Không giảm quá tổng tiền hàng.
+        discountAmount = Math.min(discountAmount, subtotal);
+        promotionId = promotion.id;
+      }
+
+      const total = subtotal - discountAmount;
 
       for (const [productId, qtyToDeduct] of productQtyMap.entries()) {
         const result = await tx.product.updateMany({
@@ -112,6 +174,9 @@ export class OrdersService {
       return tx.order.create({
         data: {
           userId,
+          subtotal,
+          discountAmount,
+          promotionId,
           total,
           status: 'PENDING',
           items: { create: orderItems },

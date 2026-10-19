@@ -223,3 +223,98 @@ npm test -- orders.service.spec.ts
 Đơn hàng chuyển trạng thái sang PAID và một bản ghi giao dịch mới được lưu vào bảng Payment.
 
 
+Task 10.4 – Khuyến mãi và điểm thưởng (Promotion & Loyalty)
+
+  1. Mục tiêu
+    Triển khai nghiệp vụ khuyến mãi và điểm thưởng trong hệ thống BrewLite bằng NestJS, Prisma ORM và PostgreSQL. Hệ thống cho phép khách hàng áp dụng mã giảm giá hợp lệ khi tạo đơn hàng và tích lũy điểm sau khi thanh toán thành công.
+
+  2. Chức năng khuyến mãi:
+    Hệ thống sử dụng bảng Promotion để lưu thông tin mã giảm giá, bao gồm:  
+      code: Mã khuyến mãi duy nhất.
+      type: Loại giảm giá (PERCENT hoặc FIXED).
+      value: Giá trị giảm giá.
+      maxDiscount: Số tiền giảm tối đa, áp dụng cho mã phần trăm.
+      minOrderAmount: Giá trị đơn hàng tối thiểu.
+      startsAt, expiresAt: Thời gian bắt đầu và hết hạn.
+      isActive: Trạng thái hoạt động của mã.
+    Khi khách hàng tạo đơn hàng, hệ thống kiểm tra mã khuyến mãi, thời hạn sử dụng, trạng thái hoạt động và giá trị đơn hàng tối thiểu.
+    Mã không hợp lệ sẽ bị từ chối. Việc tạo đơn hàng và trừ tồn kho được thực hiện trong transaction để tránh lưu dữ liệu không nhất quán.
+    
+  3. Quy tắc tính giảm giá
+    Hệ thống hỗ trợ hai loại khuyến mãi:
+      PERCENT: Giảm theo phần trăm tổng tiền hàng, có thể giới hạn mức giảm tối đa.
+      FIXED: Giảm một số tiền cố định, không vượt quá tổng tiền hàng.
+    Công thức tính tiền:
+      total = subtotal - discountAmount
+        subtotal: Tổng tiền hàng trước giảm giá.
+        discountAmount: Số tiền được giảm.
+        total: Tổng tiền khách hàng phải thanh toán.
+    Thông tin khuyến mãi được lưu trong đơn hàng thông qua promotionId, subtotal và discountAmount.
+
+  4. Chức năng điểm thưởng Loyalty
+      Hệ thống sử dụng bảng LoyaltyTransaction để lưu lịch sử điểm thưởng của khách hàng.
+      Khi đơn hàng chuyển sang trạng thái PAID, hệ thống ghi nhận điểm theo quy tắc:
+        Mỗi 10.000 đồng thực trả được 1 điểm, làm tròn xuống.
+          Ví dụ: Đơn hàng có tổng tiền sau giảm giá là 36.000 đồng sẽ được cộng 3 điểm.
+      Điểm thưởng chỉ được ghi nhận khi thanh toán thành công. Các đơn thanh toán thất bại không được cộng điểm.
+      Trường orderId của LoyaltyTransaction có ràng buộc duy nhất để ngăn việc tạo nhiều bản ghi điểm thưởng cho cùng một đơn hàng.
+
+  5. Đảm bảo tính nhất quán dữ liệu
+    Các thao tác cập nhật trạng thái đơn hàng, lưu lịch sử thanh toán và ghi nhận điểm thưởng cần được thực hiện trong cùng một transaction.
+    Nếu một thao tác thất bại, transaction sẽ rollback để tránh trường hợp đơn hàng đã thanh toán nhưng điểm thưởng chưa được ghi nhận, hoặc điểm thưởng được ghi nhận khi thanh toán không thành công.
+    Ràng buộc duy nhất trên LoyaltyTransaction.orderId hỗ trợ chống ghi nhận điểm thưởng trùng lặp.
+
+  6. Kiểm thử
+    Tạo đơn với mã khuyến mãi hợp lệ: Đơn hàng được tạo với số tiền giảm chính xác
+    Sử dụng mã không tồn tại: Trả về lỗi 400 Bad Request
+    Sử dụng mã đã hết hạn hoặc chưa đến ngày bắt đầu: Từ chối áp dụng mã
+    Đơn hàng chưa đạt giá trị tối thiểu: Từ chối áp dụng mã
+    Thanh toán thành công: Ghi nhận điểm thưởng
+    Thanh toán thất bại: Không cộng điểm
+    Xử lý ghi nhận điểm cho cùng đơn hàng lần nữa: Không tạo được bản ghi điểm trùng
+    Mã giảm giá làm số tiền giảm vượt tổng tiền hàng: Số tiền giảm không vượt quá tổng tiền hàng
+
+  7. SQL kiểm tra dữ liệu
+    Kiểm tra các mã khuyến mãi:
+      SELECT *
+      FROM "Promotion"
+      ORDER BY id DESC;
+    Kiểm tra đơn hàng và số tiền giảm:
+      SELECT
+        id,
+        subtotal,
+        "discountAmount",
+        total,
+        "promotionId",
+        status
+      FROM "Order"
+      ORDER BY id DESC;
+    Kiểm tra lịch sử điểm thưởng:
+      SELECT
+        id,
+        "userId",
+        "orderId",
+        points,
+        "createdAt"
+      FROM "LoyaltyTransaction"
+      ORDER BY id DESC;
+    Kiểm tra có đơn hàng nào bị ghi nhận điểm nhiều lần hay không:
+      SELECT
+        "orderId",
+        COUNT(*) AS transaction_count
+      FROM "LoyaltyTransaction"
+      GROUP BY "orderId"
+      HAVING COUNT(*) > 1;
+      Kết quả mong đợi của truy vấn cuối là không có dòng nào.
+
+  8. Kết quả mong đợi
+    Áp dụng mã khuyến mãi theo các điều kiện nghiệp vụ đã định nghĩa.
+    Tính và lưu chính xác số tiền trước giảm giá, số tiền giảm và số tiền phải thanh toán.
+    Chỉ cộng điểm khi đơn hàng thanh toán thành công.
+    Ngăn ghi nhận điểm thưởng nhiều lần cho cùng đơn hàng bằng ràng buộc dữ liệu.
+    Duy trì tính nhất quán giữa đơn hàng, thanh toán và lịch sử điểm thưởng thông qua transaction.
+
+
+
+
+
