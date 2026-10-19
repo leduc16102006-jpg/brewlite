@@ -1,9 +1,11 @@
-
 import {
   Body,
   Controller,
   Post,
   Req,
+  Get,
+  Param,
+  ParseIntPipe,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -41,6 +43,30 @@ export class OrdersController {
     return this.ordersService.create(
       req.user.userId,
       dto,
+    );
+  }
+
+  @Get('me')
+  @ApiOperation({
+    summary: 'Get my order history',
+  })
+  findMyOrders(@Req() req: AuthenticatedRequest) {
+    return this.ordersService.findMyOrders(
+      req.user.userId,
+    );
+  }
+
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Get order details',
+  })
+  findOne(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) orderId: number,
+  ) {
+    return this.ordersService.findOne(
+      req.user.userId,
+      orderId,
     );
   }
 }

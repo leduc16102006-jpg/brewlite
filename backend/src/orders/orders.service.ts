@@ -83,4 +83,47 @@ export class OrdersService {
       });
     });
   }
+
+
+async findMyOrders(userId: number) {
+  return this.prisma.order.findMany({
+    where: {
+      userId,
+    },
+    include: {
+      items: {
+        include: {
+          product: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+}
+
+  async findOne(userId: number, orderId: number) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId,
+      },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException(
+        'Không tìm thấy đơn hàng',
+      );
+    }
+
+    return order;
+  }
 }
