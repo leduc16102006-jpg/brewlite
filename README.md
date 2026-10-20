@@ -140,7 +140,7 @@ npm test -- payments.service.spec.ts
 npm test -- orders.controller.spec.ts
 
 
-muốn mở data base
+công cụ xem dữ liệu trực quan (GUI Viewer) dành cho lập trình viên (tương tự như DBeaver, pgAdmin hay phpMyAdmin)
 cd backend
 npx prisma studio
 Terminal sẽ hiển thị: Prisma Studio is up on http://localhost:5555.
