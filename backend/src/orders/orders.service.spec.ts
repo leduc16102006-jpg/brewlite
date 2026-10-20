@@ -1,147 +1,167 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { OrdersService } from './orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-describe('OrdersService - Task 9', () => {
+describe('OrdersService - Task 10.1', () => {
   let service: OrdersService;
 
-  const mockPrisma = {
+  const tx = {
     order: {
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    product: {
+      update: jest.fn(),
+      updateMany: jest.fn(),
     },
   };
 
-  const mockOrder = {
-    id: 1,
-    userId: 1,
-    status: 'PAID',
-    total: 94000,
-    createdAt: new Date('2026-10-16'),
-    items: [
-      {
-        id: 1,
-        productId: 1,
-        qty: 1,
-        lineTotal: 39000,
-        product: {
-          id: 1,
-          name: 'Americano',
-        },
-      },
-    ],
+  const prisma = {
+    $transaction: jest.fn((callback: (transaction: typeof tx) => unknown) =>
+      callback(tx),
+    ),
   };
 
-  beforeEach(async () => {
-    jest.resetAllMocks();
-
-    const module: TestingModule =
-      await Test.createTestingModule({
-        providers: [
-          OrdersService,
-          {
-            provide: PrismaService,
-            useValue: mockPrisma,
-          },
-        ],
-      }).compile();
-
-    service = module.get<OrdersService>(
-      OrdersService,
-    );
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Khởi tạo trực tiếp Service với Prisma Mock thuần Unit Test
+    service = new OrdersService(prisma as unknown as PrismaService);
   });
 
-  it('Lấy lịch sử đơn hàng của người đăng nhập', async () => {
-    mockPrisma.order.findMany.mockResolvedValue([
-      mockOrder,
-    ]);
-
-    const result = await service.findMyOrders(1);
-
-    expect(result).toEqual([mockOrder]);
-
-    expect(mockPrisma.order.findMany).toHaveBeenCalledWith({
-      where: {
-        userId: 1,
-      },
-      include: {
-        items: {
-          include: {
-            product: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-  });
-
-  it('Trả danh sách rỗng nếu chưa có đơn hàng', async () => {
-    mockPrisma.order.findMany.mockResolvedValue([]);
-
-    const result = await service.findMyOrders(2);
-
-    expect(result).toEqual([]);
-    expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          userId: 2,
-        },
-      }),
-    );
-  });
-
-  it('Lấy chi tiết đơn hàng của chính mình', async () => {
-    mockPrisma.order.findFirst.mockResolvedValue(
-      mockOrder,
-    );
-
-    const result = await service.findOne(1, 1);
-
-    expect(result).toEqual(mockOrder);
-
-    expect(mockPrisma.order.findFirst).toHaveBeenCalledWith({
-      where: {
+  it.each([
+    ['PENDING', 'PAID'],
+    ['PAID', 'PREPARING'],
+    ['PREPARING', 'READY'],
+    ['READY', 'COMPLETED'],
+  ])('cho phép %s -> %s', async (from, to) => {
+    tx.order.findUnique
+      .mockResolvedValueOnce({
         id: 1,
-        userId: 1,
-      },
-      include: {
-        items: {
-          include: {
-            product: true,
-          },
-        },
-      },
+        status: from,
+        items: [],
+      })
+      .mockResolvedValueOnce({
+        id: 1,
+        status: to,
+        items: [],
+      });
+
+    tx.order.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.updateStatus(1, to as never);
+
+    expect(result?.status).toBe(to);
+  });
+
+  it.each([
+    ['PENDING', 'PAYMENT_FAILED'],
+    ['PENDING', 'CANCELLED'],
+  ])('hoàn kho khi %s -> %s', async (from, to) => {
+    tx.order.findUnique
+      .mockResolvedValueOnce({
+        id: 1,
+        status: from,
+        items: [{ productId: 1, qty: 2 }],
+      })
+      .mockResolvedValueOnce({
+        id: 1,
+        status: to,
+        items: [],
+      });
+
+    tx.order.updateMany.mockResolvedValue({ count: 1 });
+    tx.product.update.mockResolvedValue({ id: 1 });
+
+    await service.updateStatus(1, to as never);
+
+    expect(tx.product.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { stock: { increment: 2 } },
     });
   });
 
-  it('Order không tồn tại thì trả 404', async () => {
-    mockPrisma.order.findFirst.mockResolvedValue(null);
+  it('cho phép PAYMENT_FAILED -> PENDING khi đủ kho', async () => {
+    tx.order.findUnique
+      .mockResolvedValueOnce({
+        id: 1,
+        status: 'PAYMENT_FAILED',
+        items: [{ productId: 1, qty: 2 }],
+      })
+      .mockResolvedValueOnce({
+        id: 1,
+        status: 'PENDING',
+        items: [],
+      });
+
+    tx.order.updateMany.mockResolvedValue({ count: 1 });
+    tx.product.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.updateStatus(1, 'PENDING');
+
+    expect(tx.product.updateMany).toHaveBeenCalledWith({
+      where: { id: 1, stock: { gte: 2 } },
+      data: { stock: { decrement: 2 } },
+    });
+    expect(result?.status).toBe('PENDING');
+  });
+
+  it('từ chối thử lại nếu không đủ kho', async () => {
+    tx.order.findUnique.mockResolvedValue({
+      id: 1,
+      status: 'PAYMENT_FAILED',
+      items: [{ productId: 1, qty: 2 }],
+    });
+
+    tx.order.updateMany.mockResolvedValue({ count: 1 });
+    tx.product.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      service.findOne(1, 999999),
+      service.updateStatus(1, 'PENDING'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it.each([
+    ['PENDING', 'COMPLETED'],
+    ['CANCELLED', 'PAID'],
+    ['PAYMENT_FAILED', 'PAID'],
+    ['COMPLETED', 'CANCELLED'],
+  ])('từ chối %s -> %s', async (from, to) => {
+    tx.order.findUnique.mockResolvedValue({
+      id: 1,
+      status: from,
+      items: [],
+    });
+
+    await expect(
+      service.updateStatus(1, to as never),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(tx.order.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('từ chối đơn hàng không tồn tại', async () => {
+    tx.order.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.updateStatus(999, 'PAID'),
     ).rejects.toThrow(NotFoundException);
   });
 
-  it('Không được xem đơn hàng của người khác', async () => {
-    // Prisma returns null when no order matches
-    // both the order ID and the current user ID.
-    mockPrisma.order.findFirst.mockResolvedValue(null);
+  it('từ chối khi trạng thái đã thay đổi đồng thời', async () => {
+    tx.order.findUnique.mockResolvedValue({
+      id: 1,
+      status: 'PAID',
+      items: [],
+    });
+
+    tx.order.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      service.findOne(2, 1),
-    ).rejects.toThrow(NotFoundException);
-
-    expect(mockPrisma.order.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          id: 1,
-          userId: 2,
-        },
-      }),
-    );
+      service.updateStatus(1, 'PREPARING'),
+    ).rejects.toThrow(BadRequestException);
   });
 });

@@ -1,16 +1,27 @@
-
-import { Injectable } from '@nestjs/common';
-import { MOCK_PRODUCTS, Product } from './products.mock';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ProductsService {
-  findAll(): Product[] {
-    return MOCK_PRODUCTS;
+  constructor(private readonly prisma: PrismaService) {}
+
+  // Lấy toàn bộ danh sách món từ CSDL thật (có kèm stock)
+  async findAll() {
+    return this.prisma.product.findMany({
+      orderBy: { id: 'asc' }, // Sắp xếp theo ID tăng dần
+    });
   }
 
-  findOne(id: number): Product | undefined {
-    return MOCK_PRODUCTS.find(
-      (product) => product.id === id,
-    );
+  // Lấy chi tiết 1 món theo ID từ CSDL thật
+  async findOne(id: number) {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Không tìm thấy sản phẩm có ID = ${id}`);
+    }
+
+    return product;
   }
 }

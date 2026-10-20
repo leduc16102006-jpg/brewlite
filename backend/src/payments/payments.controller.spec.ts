@@ -47,6 +47,8 @@ describe('PaymentsController', () => {
       method: PaymentMethod.WALLET,
     };
 
+    const idempotencyKey = 'payment-order-1-abc123';
+
     const expected = {
       orderId: 1,
       method: PaymentMethod.WALLET,
@@ -56,11 +58,12 @@ describe('PaymentsController', () => {
 
     mockPaymentsService.createPayment.mockResolvedValue(expected);
 
-    const result = await controller.createPayment(req, dto);
+    const result = await controller.createPayment(req, dto, idempotencyKey);
 
     expect(mockPaymentsService.createPayment).toHaveBeenCalledWith(
       1,
       dto,
+      idempotencyKey,
     );
 
     expect(result).toEqual(expected);
