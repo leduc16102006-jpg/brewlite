@@ -1,5 +1,5 @@
-// Decorator tổng quát cho class, method và parameter
-const decorator = () => (target, propertyKey, descriptor) => descriptor || target;
+// Decorator rỗng an toàn: luôn trả về hàm decorator nhận target, bỏ qua tham số truyền vào
+const dummyDecorator = () => (target, propertyKey, descriptor) => descriptor || target;
 
 class HttpException extends Error {
   constructor(response, status = 500) {
@@ -50,31 +50,6 @@ class ParseIntPipe {
   }
 }
 
-module.exports = {
-  __esModule: true,
-  HttpException,
-  BadRequestException,
-  NotFoundException,
-  UnauthorizedException,
-  ForbiddenException,
-  ConflictException,
-  Injectable: decorator,
-  Controller: decorator,
-  Get: decorator,
-  Post: decorator,
-  Patch: decorator,
-  Put: decorator,
-  Delete: decorator,
-  Body: decorator,
-  Param: decorator,
-  Req: decorator,
-  Res: decorator,
-  Headers: decorator,
-  UseGuards: decorator,
-  ParseIntPipe,
-  default: {},
-};
-
 class Logger {
   log() {}
   error() {}
@@ -85,9 +60,29 @@ class Logger {
 
 class ConsoleLogger extends Logger {}
 
-// Thêm Logger và ConsoleLogger vào module.exports:
 module.exports = {
-  // ... các thành phần cũ giữ nguyên
+  __esModule: true,
+  HttpException,
+  BadRequestException,
+  NotFoundException,
+  UnauthorizedException,
+  ForbiddenException,
+  ConflictException,
+  ParseIntPipe,
   Logger,
   ConsoleLogger,
+  Injectable: dummyDecorator,
+  Controller: dummyDecorator,
+  Get: dummyDecorator,
+  Post: dummyDecorator,
+  Patch: dummyDecorator,
+  Put: dummyDecorator,
+  Delete: dummyDecorator,
+  Body: dummyDecorator,
+  Param: dummyDecorator,
+  Req: dummyDecorator,
+  Res: dummyDecorator,
+  Headers: dummyDecorator,
+  UseGuards: dummyDecorator,
+  default: {},
 };

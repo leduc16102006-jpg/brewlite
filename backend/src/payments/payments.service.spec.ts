@@ -1,4 +1,5 @@
-
+import 'reflect-metadata';
+import { PaymentsController } from './payments.controller';
 import {
   BadRequestException,
   ConflictException,
@@ -10,6 +11,21 @@ import { PaymentsService } from './payments.service';
 import { MockPaymentGateway } from './mock-payment.gateway';
 import { PaymentMethod } from './dto/create-payment.dto';
 import { PrismaService } from '../prisma/prisma.service';
+
+
+describe('PaymentsController', () => {
+  let controller: PaymentsController;
+
+  beforeEach(() => {
+    const mockPaymentsService = {} as unknown as PaymentsService;
+    controller = new PaymentsController(mockPaymentsService);
+  });
+
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+});
+
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
