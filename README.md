@@ -69,7 +69,15 @@ Giao diện Người dùng (Frontend Next.js): http://localhost:3001
 
 Tài liệu API (Swagger UI NestJS): http://localhost:3000/api/docs
 
+Nếu vào http://localhost:3001 mà menu báo "Chưa tìm thấy món phù hợp" hoặc danh sách trống (do Database mới trong Docker chưa có sẵn món ăn), bạn chỉ cần nạp dữ liệu mẫu 1 lần:
+Tại thư mục backend, chạy lệnh:
+-----------------------------------
+npx prisma db seed
+-----------------------------------
+(Màn hình báo Seeded 10 BrewLite products là 10 món cà phê đã nạp thẳng vào PostgreSQL). F5 lại localhost:3001 là menu sẽ có đầy đủ các món. 
 Lưu ý: Nếu muốn tắt hệ thống, gõ lệnh docker compose down.
+
+
 
 5. Quy trình Kiểm thử luồng Nghiệp vụ (End-to-End Test qua Swagger)
 Mở Swagger UI tại: http://localhost:3000/api/docs.
@@ -131,3 +139,8 @@ npm test -- payments.service.spec.ts
 # Chạy riêng kiểm thử Controller Task 9 (4/4 PASS)
 npm test -- orders.controller.spec.ts
 
+
+muốn mở data base
+cd backend
+npx prisma studio
+Terminal sẽ hiển thị: Prisma Studio is up on http://localhost:5555.
