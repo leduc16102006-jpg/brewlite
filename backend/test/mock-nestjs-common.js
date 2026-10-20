@@ -74,3 +74,20 @@ module.exports = {
   ParseIntPipe,
   default: {},
 };
+
+class Logger {
+  log() {}
+  error() {}
+  warn() {}
+  debug() {}
+  verbose() {}
+}
+
+class ConsoleLogger extends Logger {}
+
+// Thêm Logger và ConsoleLogger vào module.exports:
+module.exports = {
+  // ... các thành phần cũ giữ nguyên
+  Logger,
+  ConsoleLogger,
+};
