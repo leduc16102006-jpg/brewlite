@@ -1,7 +1,7 @@
-
 import {
   Body,
   Controller,
+  Get,
   Param,
   ParseIntPipe,
   Patch,
@@ -43,8 +43,23 @@ export class OrdersController {
     return this.ordersService.create(req.user.userId, dto);
   }
 
+  @Get('me')
+  @ApiOperation({ summary: 'Lấy lịch sử đơn hàng của người dùng hiện tại' })
+  findMyOrders(@Req() req: AuthenticatedRequest) {
+    return this.ordersService.findMyOrders(req.user.userId);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Xem chi tiết một đơn hàng theo ID' })
+  findOne(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) orderId: number,
+  ) {
+    return this.ordersService.findOne(req.user.userId, orderId);
+  }
+
   @Patch(':id/status')
-  @ApiOperation({ summary: 'Update order status' })
+  @ApiOperation({ summary: 'Update order status (State Machine)' })
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateOrderStatusDto,

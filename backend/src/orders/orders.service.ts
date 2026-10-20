@@ -1,4 +1,3 @@
-
 import {
   BadRequestException,
   Injectable,
@@ -27,7 +26,7 @@ export class OrdersService {
     CANCELLED: [],
   };
 
-// TASK 6: Tạo đơn hàng và trừ tồn kho (Bản chuẩn hỗ trợ đa kích cỡ)
+  // TASK 6: Tạo đơn hàng và trừ tồn kho (Bản chuẩn hỗ trợ đa kích cỡ)
   async create(userId: number, dto: CreateOrderDto) {
     if (!dto.items?.length) {
       throw new BadRequestException('Đơn hàng phải có ít nhất một sản phẩm');
@@ -149,7 +148,6 @@ export class OrdersService {
         );
       }
 
-      // Chỉ một request được chuyển từ trạng thái cũ.
       const changed = await tx.order.updateMany({
         where: {
           id: orderId,
@@ -166,15 +164,10 @@ export class OrdersService {
         );
       }
 
-      // PAYMENT_FAILED và CANCELLED từ PENDING:
-      // hoàn kho vì Task 6 đã trừ kho khi tạo đơn.
       const releaseStock =
         currentStatus === 'PENDING' &&
-        (nextStatus === 'PAYMENT_FAILED' ||
-          nextStatus === 'CANCELLED');
+        (nextStatus === 'PAYMENT_FAILED' || nextStatus === 'CANCELLED');
 
-      // PAID -> CANCELLED: hoàn kho theo sơ đồ.
-      // Quy trình hoàn tiền cổng thanh toán phải được xử lý riêng.
       const cancelPaidOrder =
         currentStatus === 'PAID' && nextStatus === 'CANCELLED';
 
@@ -189,8 +182,6 @@ export class OrdersService {
         }
       }
 
-      // PAYMENT_FAILED -> PENDING: thử thanh toán lại.
-      // Giữ kho lần nữa trước khi cho phép thử lại.
       if (
         currentStatus === 'PAYMENT_FAILED' &&
         nextStatus === 'PENDING'
@@ -223,5 +214,39 @@ export class OrdersService {
         },
       });
     });
+  }
+
+  // TASK 9: Lấy toàn bộ lịch sử đơn hàng của người dùng hiện tại
+  async findMyOrders(userId: number) {
+    return this.prisma.order.findMany({
+      where: { userId },
+      include: {
+        items: {
+          include: { product: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // TASK 9: Xem chi tiết một đơn hàng cụ thể
+  async findOne(userId: number, orderId: number) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId,
+      },
+      include: {
+        items: {
+          include: { product: true },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Không tìm thấy đơn hàng');
+    }
+
+    return order;
   }
 }
