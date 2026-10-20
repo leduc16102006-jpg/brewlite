@@ -13,12 +13,14 @@ const config: Config = {
   rootDir: '.',
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    // Chỉ dịch file .ts, bỏ qua file .js để tắt cảnh báo vàng
+    '^.+\\.ts$': 'ts-jest',
   },
   moduleNameMapper: {
     ...pathsToModuleNameMapper(paths, { prefix: '<rootDir>/' }),
-    // Dẫn hướng Jest sang mock CommonJS nhẹ, chặn đứng 100% lỗi ESM:
     '^@nestjs/common$': '<rootDir>/test/mock-nestjs-common.js',
+    '^@nestjs/swagger$': '<rootDir>/test/mock-nestjs-swagger.js',
+    '^@nestjs/passport$': '<rootDir>/test/mock-nestjs-passport.js',
   },
   collectCoverageFrom: [
     'src/**/*.(t|j)s',

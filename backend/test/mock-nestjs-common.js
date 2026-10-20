@@ -1,3 +1,6 @@
+// Decorator tổng quát cho class, method và parameter
+const decorator = () => (target, propertyKey, descriptor) => descriptor || target;
+
 class HttpException extends Error {
   constructor(response, status = 500) {
     super(typeof response === 'string' ? response : (response?.message || 'Http Exception'));
@@ -34,7 +37,18 @@ class ForbiddenException extends HttpException {
   }
 }
 
-const Injectable = () => (target) => target;
+class ConflictException extends HttpException {
+  constructor(message = 'Conflict') {
+    super(message, 409);
+    this.name = 'ConflictException';
+  }
+}
+
+class ParseIntPipe {
+  transform(value) {
+    return parseInt(value, 10);
+  }
+}
 
 module.exports = {
   __esModule: true,
@@ -43,6 +57,20 @@ module.exports = {
   NotFoundException,
   UnauthorizedException,
   ForbiddenException,
-  Injectable,
+  ConflictException,
+  Injectable: decorator,
+  Controller: decorator,
+  Get: decorator,
+  Post: decorator,
+  Patch: decorator,
+  Put: decorator,
+  Delete: decorator,
+  Body: decorator,
+  Param: decorator,
+  Req: decorator,
+  Res: decorator,
+  Headers: decorator,
+  UseGuards: decorator,
+  ParseIntPipe,
   default: {},
 };

@@ -14,7 +14,7 @@ Khoa Công nghệ Thông tin - Trường Đại học Sài Gòn.
 | 3 | **Thành viên C** | Developer | CSDL danh mục sản phẩm, API `GET /products` (Task 2) và Nghiệp vụ nâng cao: State Machine `assertTransition` (Task 10.1), Thanh toán Idempotent (Task 10.2). |
 | 4 | **Thành viên D** | Developer | Giao diện Menu hiển thị dạng lưới (Task 3) và Modal chọn Size/Topping tính giá cộng dồn (Task 4). |
 | 5 | **Thành viên E** | Developer | Xác thực tài khoản (`POST /auth/register`, `POST /auth/login`, Bcrypt, JWT, `JwtAuthGuard`) (Task 7) và Kiểm soát tồn kho bằng Transaction + Optimistic Locking (Task 10.3). |
-| 6 | **Thành viên F** | Developer | API Tạo đơn hàng `POST /orders` (Task 6), API Thanh toán giả lập `POST /payments` (Task 8 BE) và Khuyến mãi / Điểm thưởng loyalty (Task 10.4). |
+| 6 | **Thành viên F** | Developer | API Tạo đơn hàng `POST /orders` (Task 6), API Thanh toán giả lập `POST /payments` (Task 8 BE), API Lịch sử đơn `GET /orders/me` (Task 9 BE) và Khuyến mãi / Điểm thưởng loyalty (Task 10.4). |
 
 ---
 
@@ -41,107 +41,63 @@ Tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api
 | **Task 7: Xác thực** | Backend (`POST`) | `/auth/register` | Public | Đăng ký tài khoản người dùng mới (Mật khẩu được băm an toàn qua Bcrypt). | Bạn E |
 | | Backend (`POST`) | `/auth/login` | Public | Đăng nhập hệ thống, kiểm tra mật khẩu và trả về chuỗi `accessToken` (JWT). | Bạn E |
 | | Backend (`GET`) | `/auth/me` | Bearer JWT | Trích xuất thông tin người dùng từ token (Bảo vệ bởi `JwtAuthGuard`). | Bạn E |
-| **Task 6: Đơn hàng** | Backend (`POST`) | `/orders` | Bearer JWT | Tạo đơn hàng mới (`PENDING`), validate dữ liệu qua `class-validator`, trừ tồn kho đồng thời trong Transaction, tính tổng tiền trên máy chủ. | Bạn F |
-| **Task 8: Thanh toán** | Backend (`POST`) | `/payments` | Bearer JWT | Thanh toán giả lập qua Ví (`WALLET`) hoặc Thẻ (`CARD`). Cập nhật đơn hàng sang `PAID` hoặc `PAYMENT_FAILED` và lưu lịch sử giao dịch vào bảng `Payment`. | Bạn F |
+| **Task 6: Đơn hàng** | Backend (`POST`) | `/orders` | Bearer JWT | Tạo đơn hàng mới (`PENDING`), validate dữ liệu qua `class-validator`, trừ tồn kho đồng thời trong Transaction, tính tổng tiền trên máy chủ. | Bạn E |
+| **Task 8: Thanh toán** | Backend (`POST`) | `/payments` | Bearer JWT | Thanh toán giả lập qua Ví (`WALLET`) hoặc Thẻ (`CARD`). Cập nhật đơn hàng sang `PAID` hoặc `PAYMENT_FAILED` và lưu lịch sử giao dịch vào bảng `Payment`. *(Xem chi tiết tại `backend/README_TASK8.md`)* | Bạn E |
+| **Task 9: Lịch sử đơn hàng** | Backend (`GET`) | `/orders/me` | Bearer JWT | Lấy danh sách lịch sử đơn hàng của tài khoản đang đăng nhập, sắp xếp mới nhất lên đầu, kèm thông tin chi tiết từng món. *(Xem chi tiết tại `backend/README_TASK9.md`)* | Bạn E |
+| | Backend (`GET`) | `/orders/:id` | Bearer JWT | Xem chi tiết một đơn hàng cụ thể theo ID (chỉ xem được đơn của chính mình, chặn tài khoản khác). | Bạn E |
 | **Task 10.1: Máy trạng thái** | Backend (`PATCH`) | `/orders/:id/status` | Bearer JWT | Chuyển đổi trạng thái đơn hàng theo sơ đồ State Machine (`PENDING -> PAID -> PREPARING -> READY -> COMPLETED`). Chặn chuyển trạng thái sai (lỗi `400 Bad Request`) và tự động hoàn kho khi hủy đơn. Unit test: 14/14 PASS. | Bạn C |
 | **Task 10.2: Thanh toán Idempotent** | Backend (`POST`) | `/payments` | Bearer JWT + Header `idempotency-key` | Chống trừ tiền và nhân đôi đơn hàng khi khách bấm thanh toán nhiều lần. Dùng trạng thái `PROCESSING` và kiểm tra khóa duy nhất trên PostgreSQL. Trả về kết quả cũ nếu gửi lại cùng key. Unit test: 11/11 PASS. | Bạn C |
 
 ---
 
-## 4. Hướng dẫn Cài đặt & Khởi chạy Toàn diện cho Thành viên mới
+## 4. Hướng dẫn Cài đặt & Khởi chạy Nhanh (Sử dụng Docker Full-Stack)
 
-### Yêu cầu môi trường tối thiểu
-- Đã cài đặt **Node.js** (phiên bản 20 LTS hoặc 22 LTS).
+Để dễ dàng nghiệm thu và chạy thử toàn bộ hệ thống (Database + Backend + Frontend) mà không cần cấu hình phức tạp, nhóm đã đóng gói dự án bằng Docker (Task 9).
+
+### Yêu cầu duy nhất
 - Đã cài đặt và đang bật ứng dụng **Docker Desktop** trên máy tính (biểu tượng Engine báo màu xanh lá cây).
 
----
-
-### BƯỚC 1: Khởi chạy Cơ sở dữ liệu PostgreSQL (Docker)
-Tại thư mục gốc của dự án (`brewlite`), mở terminal và chạy:
+### Khởi chạy 1 chạm (One-click Start)
+Mở terminal tại thư mục gốc của dự án (`brewlite`) và chạy lệnh duy nhất sau:
 ```bash
-docker compose up -d
+docker compose up --build -d
 
-Kiểm tra: Gõ lệnh docker ps, nếu thấy container brewlite_postgres đang chạy trên cổng 5432 là hoàn tất.
+Quá trình tải và build sẽ diễn ra khoảng 1-2 phút cho lần đầu tiên. Sau khi terminal báo [+] up 3/3, hệ thống đã sẵn sàng:
 
-BƯỚC 2: Cài đặt và Khởi chạy Backend (NestJS)
-Mở một cửa sổ terminal mới và thực hiện tuần tự:
+Giao diện Người dùng (Frontend Next.js): http://localhost:3001
 
-# 1. Di chuyển vào thư mục backend
-cd backend
+Tài liệu API (Swagger UI NestJS): http://localhost:3000/api/docs
 
-# 2. Cài đặt các thư viện phụ thuộc
-npm install
-
-# 3. Tạo tệp cấu hình môi trường từ mẫu
-# Trên Windows PowerShell:
-copy .env.example .env
-# Trên macOS / Linux:
-# cp .env.example .env
-
-# 4. Sinh Prisma Client và đồng bộ cấu trúc bảng vào CSDL
-npx prisma generate
-npx prisma db push
-
-# 5. Nạp dữ liệu menu mẫu (10 món đồ uống với tồn kho sẵn sàng)
-npx prisma db seed
-
-# 6. Khởi chạy máy chủ backend ở chế độ phát triển
-npm run start:dev
-
-- Địa chỉ Backend API: http://localhost:3000
-
-- Tài liệu kiểm thử Swagger UI: http://localhost:3000/api/docs
-
--------------------------- Trình quản lý CSDL trực quan (Prisma Studio)--------------------------------------
-npx prisma studio
-# Truy cập tại: http://localhost:5555
-
-BƯỚC 3: Cài đặt và Khởi chạy Frontend (Next.js)
-Mở một cửa sổ terminal khác và thực hiện:
-
-# 1. Di chuyển vào thư mục frontend
-cd frontend
-
-# 2. Cài đặt các thư viện phụ thuộc
-npm install
-
-# 3. Tạo tệp cấu hình môi trường frontend
-# Trên Windows PowerShell:
-copy .env.example .env.local
-# Trên macOS / Linux:
-# cp .env.example .env.local
-
-# 4. Khởi động giao diện Next.js
-npm run dev
-
-Địa chỉ Frontend: http://localhost:3001 (hoặc http://localhost:3000 nếu cổng 3000 đang dùng cho backend).
+Lưu ý: Nếu muốn tắt hệ thống, gõ lệnh docker compose down.
 
 5. Quy trình Kiểm thử luồng Nghiệp vụ (End-to-End Test qua Swagger)
-  1 Mở Swagger UI tại: http://localhost:3000/api/docs.
+Mở Swagger UI tại: http://localhost:3000/api/docs.
 
-  2 Dùng POST /auth/login để lấy accessToken, sau đó gắn vào nút Authorize ở góc trên bên phải theo cú pháp Bearer <accessToken>.
+Dùng POST /auth/login để lấy accessToken, sau đó gắn vào nút Authorize ở góc trên bên phải theo cú pháp Bearer <accessToken>.
 
-  3 Dùng POST /orders tạo đơn hàng mới với giỏ hàng mẫu:
+Dùng POST /orders tạo đơn hàng mới với giỏ hàng mẫu:
 
-  {
+{
   "items": [
     { "productId": 1, "qty": 1, "size": "M" },
     { "productId": 2, "qty": 2, "size": "L" }
   ]
 }
 
-  Lấy mã id của đơn hàng vừa tạo trong kết quả trả về (ví dụ: id: 1).
+// có thể lấy cái khác cũng được 
 
-  Dùng POST /payments để thực hiện thanh toán Idempotent (Task 8 & 10.2):
+Lấy mã id của đơn hàng vừa tạo trong kết quả trả về (ví dụ: id: 1).
 
-  Header idempotency-key: Nhập chuỗi duy nhất, ví dụ PAY-KEY-001.
+Dùng POST /payments để thực hiện thanh toán Idempotent (Task 8 & 10.2):
 
-  Body:
-    {
+Header idempotency-key: Nhập chuỗi duy nhất, ví dụ PAY-KEY-001.
+
+Body:
+
+{
   "orderId": 1,
   "method": "WALLET"
 }
-
 
 Bấm Execute lần 1: Đơn hàng chuyển sang PAID và lưu lịch sử giao dịch vào bảng Payment.
 
@@ -153,8 +109,15 @@ Dùng PATCH /orders/:id/status để kiểm tra máy trạng thái (Task 10.1):
 
 Cố tình gửi trạng thái sai (ví dụ từ PREPARING lùi về PENDING) để kiểm tra mã lỗi 400 Bad Request chặn chuyển tiếp không hợp lệ.
 
+Dùng GET /orders/me để kiểm tra Lịch sử đơn hàng (Task 9):
+
+Bấm Execute: Hệ thống trả về danh sách toàn bộ các đơn hàng của user đang đăng nhập kèm trạng thái chi tiết từng món.
+
+Dùng GET /orders/1 để xem chi tiết riêng đơn hàng số 1.
+
 6. Chạy Kiểm thử Tự động (Unit Test Backend)
-Tại thư mục backend, chạy lệnh:
+Nếu muốn chạy test nội bộ trên máy phát triển (yêu cầu cài sẵn Node.js), tại thư mục backend, chạy lệnh:
+
 # Chạy toàn bộ các bài unit test
 npm test
 
@@ -163,4 +126,7 @@ npm test -- orders.service.spec.ts
 
 # Chạy riêng kiểm thử thanh toán Idempotent Task 10.2 (11/11 PASS)
 npm test -- payments.service.spec.ts
+
+# Chạy riêng kiểm thử Controller Task 9 (4/4 PASS)
+npm test -- orders.controller.spec.ts
 

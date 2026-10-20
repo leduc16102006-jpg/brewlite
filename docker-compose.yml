@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -10,9 +8,33 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: brewlite_db
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: brewlite_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      # Bí quyết: Backend trong Docker gọi CSDL thông qua tên container 'postgres' thay vì 'localhost'
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/brewlite_db?schema=public
+      JWT_SECRET: brewlite_secret_key_2026_hcmue
+    depends_on:
+      - postgres
+
+  frontend:
+    build: ./frontend
+    container_name: brewlite_frontend
+    restart: always
+    ports:
+      - "3001:3000" # Máy chủ ảo chạy cổng 3000, ánh xạ ra máy thật cổng 3001
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
