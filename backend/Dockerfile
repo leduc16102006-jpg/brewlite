@@ -21,4 +21,4 @@ RUN npm run build
 EXPOSE 3000
 
 # Lệnh khởi chạy: Tự động đồng bộ CSDL (db push) trước khi chạy Server
-CMD npx prisma db push && npm run start:prod
+CMD npx prisma db push && npx prisma db seed && npm run start:prod

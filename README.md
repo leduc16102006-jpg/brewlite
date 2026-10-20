@@ -63,8 +63,7 @@ Mở terminal tại thư mục gốc của dự án (`brewlite`) và chạy lệ
 docker compose up --build -d
 
 Quá trình tải và build sẽ diễn ra khoảng 1-2 phút cho lần đầu tiên. Sau khi terminal báo [+] up 3/3, hệ thống đã sẵn sàng:
-- Lưu ý khi tạo dữ liệu lần đầu: Nếu cơ sở dữ liệu trống, bạn có thể nạp nhanh dữ liệu mẫu bằng cách chạy lệnh: 
-!!! docker exec -it brewlite_backend npx prisma db seed
+
 
 Giao diện Người dùng (Frontend Next.js): http://localhost:3001
 
