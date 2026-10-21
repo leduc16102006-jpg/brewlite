@@ -144,3 +144,46 @@ công cụ xem dữ liệu trực quan (GUI Viewer) dành cho lập trình viên
 cd backend
 npx prisma studio
 Terminal sẽ hiển thị: Prisma Studio is up on http://localhost:5555.
+
+
+Quy trình chuẩn xác 100% cho FE và BE (Cực kỳ ngắn gọn)
+vừa tận dụng được Docker
+Dành cho FE: 
+
+1. Kéo code develop mới nhất về
+git checkout develop
+git pull origin develop
+
+# 2. Tạo nhánh riêng để làm task (Ví dụ làm Task 9 UI)
+git checkout -b feature/task9-order-ui
+
+# 3. Ở thư mục gốc brewlite: DÙNG DOCKER BẬT CSDL VÀ BACKEND (để cấp API cho FE dùng)
+docker compose up -d postgres backend
+
+# 4. Vào thư mục frontend chạy chế độ lập trình (để sửa code là web tự đổi ngay)
+cd frontend
+npm install
+npm run dev
+(Lúc này Frontend chạy ngoài máy thật ở cổng 3001, tự động kết nối với Backend trong Docker ở cổng 3000.)
+
+
+Dành cho bạn làm Backend :PowerShell
+# 1. Kéo code develop mới nhất về
+git checkout develop
+git pull origin develop
+
+# 2. Tạo nhánh riêng để làm task (Ví dụ làm Task 10.3)
+git checkout -b feature/task10.3-optimistic-locking
+
+# 3. Ở thư mục gốc brewlite: CHỈ BẬT DUY NHẤT DATABASE BẰNG DOCKER
+docker compose up -d postgres
+
+# 4. Vào thư mục backend chạy chế độ lập trình
+cd backend
+npm install
+npx prisma generate
+npm run start:dev
+(Lúc này Backend chạy ngoài máy thật ở cổng 3000, kết nối thẳng vào PostgreSQL trong Docker cổng 5432. Bạn E, C sửa file API nào thì NestJS tự reload ngay lập tức).   Tóm lại:Ý tưởng của bạn hoàn toàn đúng chuẩn DevOps! Chỉ cần nhớ quy tắc:  
+Làm Frontend thì bật: docker compose up -d postgres backend (để Docker gánh hộ Backend + DB).   
+Làm Backend thì bật: docker compose up -d postgres (để Docker gánh hộ DB).   
+Còn lệnh chạy cả 3: docker compose up --build -d là dành riêng cho lúc đi nghiệm thu, chấm điểm đồ án với giảng viên!   
