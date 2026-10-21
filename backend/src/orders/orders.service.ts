@@ -92,21 +92,36 @@ export class OrdersService {
           lineTotal,
         };
       });
+      for (const [productId, qtyToDeduct] of [
+        ...productQtyMap.entries(),
+      ].sort((a, b) => a[0] - b[0])) {
+        const product = productMap.get(productId);
 
-      for (const [productId, qtyToDeduct] of productQtyMap.entries()) {
+        if (!product) {
+          throw new NotFoundException(
+            'Sản phẩm không tồn tại',
+          );
+        }
+
         const result = await tx.product.updateMany({
           where: {
             id: productId,
+            version: product.version,
             stock: { gte: qtyToDeduct },
           },
           data: {
             stock: { decrement: qtyToDeduct },
+            version: { increment: 1 },
           },
         });
+
         if (result.count !== 1) {
-          throw new BadRequestException('Tồn kho đã thay đổi. Vui lòng thử lại');
+          throw new BadRequestException(
+            'Tồn kho đã thay đổi. Vui lòng thử lại',
+          );
         }
       }
+
 
       return tx.order.create({
         data: {
@@ -117,6 +132,9 @@ export class OrdersService {
         },
         include: { items: { include: { product: true } } },
       });
+    }, {
+      maxWait: 10000,
+      timeout: 20000,
     });
   }
 
@@ -177,6 +195,7 @@ export class OrdersService {
             where: { id: item.productId },
             data: {
               stock: { increment: item.qty },
+              version: { increment: 1 },
             },
           });
         }
@@ -194,6 +213,7 @@ export class OrdersService {
             },
             data: {
               stock: { decrement: item.qty },
+              version: { increment: 1 },
             },
           });
 

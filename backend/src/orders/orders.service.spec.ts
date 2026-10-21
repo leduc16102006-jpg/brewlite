@@ -80,7 +80,10 @@ describe('OrdersService - Task 10.1', () => {
 
     expect(tx.product.update).toHaveBeenCalledWith({
       where: { id: 1 },
-      data: { stock: { increment: 2 } },
+      data: {
+        stock: { increment: 2 },
+        version: { increment: 1 },
+      },
     });
   });
 
@@ -104,7 +107,7 @@ describe('OrdersService - Task 10.1', () => {
 
     expect(tx.product.updateMany).toHaveBeenCalledWith({
       where: { id: 1, stock: { gte: 2 } },
-      data: { stock: { decrement: 2 } },
+      data: { stock: { decrement: 2 }, version : { increment: 1 } },
     });
     expect(result?.status).toBe('PENDING');
   });
