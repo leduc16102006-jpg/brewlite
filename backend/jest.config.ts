@@ -11,9 +11,8 @@ const paths = tsconfig?.compilerOptions?.paths ?? {};
 const config: Config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
-  testRegex: '.*\\.spec\\.ts$',
+  testRegex: '.*\\.(spec|integration)\\.ts$',
   transform: {
-    // Chỉ dịch file .ts, bỏ qua file .js để tắt cảnh báo vàng
     '^.+\\.ts$': 'ts-jest',
   },
   moduleNameMapper: {
