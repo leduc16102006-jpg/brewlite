@@ -298,10 +298,11 @@ Gọi POST /orders có kèm "promotionCode": "BREW10"
 → Trả về mã 201 Created, tổng tiền total được chiết khấu đúng 10%.
 Gọi POST /payments thanh toán cho đơn hàng trên
 → Sau khi đơn chuyển sang PAID, mở bảng LoyaltyTransaction trên Prisma Studio: Xuất hiện dòng cộng điểm mới tương ứng với công thức total / 10000.
-``` 
+ 
 5. Chạy Toàn bộ Kiểm thử Tự động (Backend Test Suite)
 Để kiểm tra toàn diện tất cả các tiêu chí chấm điểm kỹ thuật tự động của đề tài, tại thư mục backend, chạy lệnh duy nhất:
 Bash
 npm test
 Kết quả chuẩn xác:textTest Suites: 6 passed, 6 total
 Tests:       30 passed, 30 total(Vượt qua 100% các tiêu chí a, b, c)
+```
