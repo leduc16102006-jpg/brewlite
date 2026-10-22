@@ -1,16 +1,3 @@
-// export default function Home() {
-//   return (
-//     <main className="flex min-h-screen flex-col items-center justify-center p-24">
-//       <h1 className="text-4xl font-bold text-emerald-600">
-//         Hello BrewLite Siuuuuuuuuuuuuuuuuu!
-//       </h1>
-//       <p className="mt-4 text-gray-600">
-//         Hệ thống đặt cà phê không tiền mặt
-//       </p>
-//     </main>
-//   );
-// }
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -132,10 +119,6 @@ export default function Home() {
             BREW<span className="text-[#a16b4b]">LITE</span>
           </a>
 
-          {/* <span className="hidden text-sm text-[#806e62] sm:block">
-            Your daily coffee ritual
-          </span> */}
-
           <button
             onClick={() =>
               document
@@ -156,7 +139,8 @@ export default function Home() {
             Freshly brewed, just for you
           </p>
 
-          <h1 className="max-w-xl text-5xl font-black leading-tight tracking-tight md:text-7xl">
+          <h1 className="max-w-xl text-5xl font-black leading-tight tracking-tight md:text-7xl"
+          >
             Một chút cà phê,
             <span className="text-[#a16b4b]"> một chút chill.</span>
           </h1>
@@ -179,16 +163,15 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="relative flex min-h-64 items-center justify-center overflow-hidden rounded-[2rem] bg-[#e9ddce] p-8 md:min-h-96">
+        <div className="relative min-h-64 overflow-hidden rounded-[2rem] bg-[#e9ddce] md:min-h-96">
           <div className="absolute -right-8 -top-8 h-48 w-48 rounded-full bg-[#d2b69a]" />
           <div className="absolute -bottom-12 -left-8 h-48 w-48 rounded-full bg-[#d9c1a9]" />
 
-          <div className="relative text-center">
-            <span className="text-8xl md:text-9xl">☕</span>
-            <p className="mt-5 font-serif text-2xl italic text-[#634536]">
-              Made with love.
-            </p>
-          </div>
+          <img
+            src="/images/coffee.jpg"
+            alt="A cozy cup of coffee"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
         </div>
       </section>
 

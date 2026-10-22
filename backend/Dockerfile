@@ -12,7 +12,8 @@ RUN npm install
 COPY . .
 
 # Khởi tạo Prisma Client
-RUN npx prisma generate
+#RUN npx prisma generate
+RUN DATABASE_URL="postgresql://postgres:postgres@localhost:5432/brewlite_db?schema=public" npx prisma generate
 
 # Biên dịch NestJS từ TypeScript sang JavaScript
 RUN npm run build
