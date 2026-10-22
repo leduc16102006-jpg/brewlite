@@ -1,7 +1,8 @@
-
-import { Test, TestingModule } from '@nestjs/testing';
+import 'reflect-metadata';
+import { PaymentsController } from './payments.controller';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -10,6 +11,21 @@ import { PaymentsService } from './payments.service';
 import { MockPaymentGateway } from './mock-payment.gateway';
 import { PaymentMethod } from './dto/create-payment.dto';
 import { PrismaService } from '../prisma/prisma.service';
+
+
+describe('PaymentsController', () => {
+  let controller: PaymentsController;
+
+  beforeEach(() => {
+    const mockPaymentsService = {} as unknown as PaymentsService;
+    controller = new PaymentsController(mockPaymentsService);
+  });
+
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+});
+
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -27,13 +43,17 @@ describe('PaymentsService', () => {
     total: 94000,
   };
 
-  // Mock operations inside Prisma transaction
   const mockTx = {
     order: {
       updateMany: jest.fn(),
     },
     payment: {
       create: jest.fn(),
+      update: jest.fn(),
+    },
+    // THÊM ĐOẠN NÀY VÀO:
+    loyaltyTransaction: {
+      create: jest.fn().mockResolvedValue({ id: 1, points: 9 }),
     },
   };
 
@@ -41,65 +61,92 @@ describe('PaymentsService', () => {
     order: {
       findUnique: jest.fn(),
     },
+    payment: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
+    // THÊM ĐOẠN NÀY VÀO:
+    loyaltyTransaction: {
+      create: jest.fn().mockResolvedValue({ id: 1, points: 9 }),
+    },
     $transaction: jest.fn(),
   };
 
   beforeEach(async () => {
     jest.resetAllMocks();
 
+    mockPrisma.payment.findUnique.mockResolvedValue(null);
+
     mockPrisma.order.findUnique.mockResolvedValue({
       ...pendingOrder,
+    });
+
+    mockPrisma.payment.create.mockResolvedValue({
+      id: 1,
+      orderId: 1,
+      amount: 94000,
+      method: PaymentMethod.WALLET,
+      status: 'PROCESSING',
+      idempotencyKey: 'test-payment-key-1',
     });
 
     mockTx.order.updateMany.mockResolvedValue({
       count: 1,
     });
 
-    mockTx.payment.create.mockResolvedValue({
+    mockTx.payment.update.mockResolvedValue({
       id: 1,
       orderId: 1,
       amount: 94000,
-      method: 'WALLET',
+      method: PaymentMethod.WALLET,
       status: 'PAID',
+      idempotencyKey: 'test-payment-key-1',
     });
 
-    // Execute transaction callback with mocked tx
     mockPrisma.$transaction.mockImplementation(
       async (
         callback: (tx: typeof mockTx) => Promise<unknown>,
       ) => callback(mockTx),
     );
 
-    const module: TestingModule =
-      await Test.createTestingModule({
-        providers: [
-          PaymentsService,
-          {
-            provide: MockPaymentGateway,
-            useValue: mockGateway,
-          },
-          {
-            provide: PrismaService,
-            useValue: mockPrisma,
-          },
-        ],
-      }).compile();
-
-    service = module.get<PaymentsService>(
-      PaymentsService,
+    // Thay thế bằng khởi tạo thuần:
+    service = new PaymentsService(
+      mockGateway as any,
+      mockPrisma as any,
     );
   });
 
-  it('WALLET: thanh toán và lưu Payment thành công', async () => {
+  it('WALLET: thanh toán thành công và lưu Payment', async () => {
     mockGateway.charge.mockResolvedValue('PAID');
 
-    const result = await service.createPayment(userId, {
-      orderId: 1,
-      method: PaymentMethod.WALLET,
-    });
+    const key = 'test-payment-key-1';
+
+    const result = await service.createPayment(
+      userId,
+      {
+        orderId: 1,
+        method: PaymentMethod.WALLET,
+      },
+      key,
+    );
 
     expect(result.status).toBe('PAID');
     expect(result.orderId).toBe(1);
+
+    expect(mockPrisma.payment.findUnique).toHaveBeenCalledWith({
+      where: { idempotencyKey: key },
+      include: { order: true },
+    });
+
+    expect(mockPrisma.payment.create).toHaveBeenCalledWith({
+      data: {
+        orderId: 1,
+        amount: 94000,
+        method: PaymentMethod.WALLET,
+        status: 'PROCESSING',
+        idempotencyKey: key,
+      },
+    });
 
     expect(mockGateway.charge).toHaveBeenCalledWith(
       PaymentMethod.WALLET,
@@ -113,51 +160,61 @@ describe('PaymentsService', () => {
         userId: 1,
         status: 'PENDING',
       },
-      data: {
-        status: 'PAID',
-      },
+      data: { status: 'PAID' },
     });
 
-    expect(mockTx.payment.create).toHaveBeenCalledWith({
-      data: {
-        orderId: 1,
-        amount: 94000,
-        method: PaymentMethod.WALLET,
-        status: 'PAID',
-      },
+    expect(mockTx.payment.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { status: 'PAID' },
     });
   });
 
-  it('CARD: thanh toán và lưu Payment thành công', async () => {
+  it('CARD: thanh toán thành công', async () => {
     mockGateway.charge.mockResolvedValue('PAID');
 
-    const result = await service.createPayment(userId, {
-      orderId: 1,
-      method: PaymentMethod.CARD,
-    });
+    const result = await service.createPayment(
+      userId,
+      {
+        orderId: 1,
+        method: PaymentMethod.CARD,
+      },
+      'test-card-key',
+    );
 
     expect(result.status).toBe('PAID');
     expect(result.method).toBe(PaymentMethod.CARD);
 
-    expect(mockTx.payment.create).toHaveBeenCalledWith({
+    expect(mockPrisma.payment.create).toHaveBeenCalledWith({
       data: {
         orderId: 1,
         amount: 94000,
         method: PaymentMethod.CARD,
-        status: 'PAID',
+        status: 'PROCESSING',
+        idempotencyKey: 'test-card-key',
       },
+    });
+
+    expect(mockGateway.charge).toHaveBeenCalledWith(
+      PaymentMethod.CARD,
+    );
+
+    expect(mockTx.payment.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { status: 'PAID' },
     });
   });
 
   it('Thanh toán thất bại: lưu PAYMENT_FAILED', async () => {
-    mockGateway.charge.mockResolvedValue(
-      'PAYMENT_FAILED',
-    );
+    mockGateway.charge.mockResolvedValue('PAYMENT_FAILED');
 
-    const result = await service.createPayment(userId, {
-      orderId: 1,
-      method: PaymentMethod.WALLET,
-    });
+    const result = await service.createPayment(
+      userId,
+      {
+        orderId: 1,
+        method: PaymentMethod.WALLET,
+      },
+      'test-failed-key',
+    );
 
     expect(result.status).toBe('PAYMENT_FAILED');
 
@@ -167,83 +224,189 @@ describe('PaymentsService', () => {
         userId: 1,
         status: 'PENDING',
       },
-      data: {
-        status: 'PAYMENT_FAILED',
-      },
+      data: { status: 'PAYMENT_FAILED' },
     });
 
-    expect(mockTx.payment.create).toHaveBeenCalledWith({
-      data: {
-        orderId: 1,
-        amount: 94000,
-        method: PaymentMethod.WALLET,
-        status: 'PAYMENT_FAILED',
-      },
+    expect(mockTx.payment.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { status: 'PAYMENT_FAILED' },
     });
   });
 
-  it('Order không tồn tại: 404', async () => {
+  it('Thiếu Idempotency-Key: trả lỗi 400', async () => {
+    await expect(
+      service.createPayment(
+        userId,
+        {
+          orderId: 1,
+          method: PaymentMethod.WALLET,
+        },
+        '',
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(mockGateway.charge).not.toHaveBeenCalled();
+  });
+
+  it('Order không tồn tại: trả lỗi 404', async () => {
     mockPrisma.order.findUnique.mockResolvedValue(null);
 
     await expect(
-      service.createPayment(userId, {
-        orderId: 999,
-        method: PaymentMethod.WALLET,
-      }),
+      service.createPayment(
+        userId,
+        {
+          orderId: 999,
+          method: PaymentMethod.WALLET,
+        },
+        'test-not-found-key',
+      ),
     ).rejects.toThrow(NotFoundException);
 
     expect(mockGateway.charge).not.toHaveBeenCalled();
-    expect(mockTx.payment.create).not.toHaveBeenCalled();
+    expect(mockPrisma.payment.create).not.toHaveBeenCalled();
   });
 
-  it('Không được thanh toán Order người khác: 403', async () => {
+  it('Không được thanh toán Order người khác: trả lỗi 403', async () => {
     mockPrisma.order.findUnique.mockResolvedValue({
       ...pendingOrder,
       userId: 2,
     });
 
     await expect(
-      service.createPayment(userId, {
-        orderId: 1,
-        method: PaymentMethod.WALLET,
-      }),
+      service.createPayment(
+        userId,
+        {
+          orderId: 1,
+          method: PaymentMethod.WALLET,
+        },
+        'test-forbidden-key',
+      ),
     ).rejects.toThrow(ForbiddenException);
 
     expect(mockGateway.charge).not.toHaveBeenCalled();
-    expect(mockTx.payment.create).not.toHaveBeenCalled();
+    expect(mockPrisma.payment.create).not.toHaveBeenCalled();
   });
 
-  it('Order đã PAID không được thanh toán lại', async () => {
+  it('Order đã PAID không được thanh toán lại bằng key mới', async () => {
     mockPrisma.order.findUnique.mockResolvedValue({
       ...pendingOrder,
       status: 'PAID',
     });
 
     await expect(
-      service.createPayment(userId, {
-        orderId: 1,
-        method: PaymentMethod.CARD,
-      }),
+      service.createPayment(
+        userId,
+        {
+          orderId: 1,
+          method: PaymentMethod.CARD,
+        },
+        'test-already-paid-key',
+      ),
     ).rejects.toThrow(BadRequestException);
 
     expect(mockGateway.charge).not.toHaveBeenCalled();
-    expect(mockTx.payment.create).not.toHaveBeenCalled();
+    expect(mockPrisma.payment.create).not.toHaveBeenCalled();
   });
 
-  it('Order thay đổi trạng thái thì không lưu Payment', async () => {
+  it('Order thay đổi trạng thái: báo ConflictException', async () => {
     mockGateway.charge.mockResolvedValue('PAID');
+    mockTx.order.updateMany.mockResolvedValue({ count: 0 });
 
-    mockTx.order.updateMany.mockResolvedValue({
-      count: 0,
+    await expect(
+      service.createPayment(
+        userId,
+        {
+          orderId: 1,
+          method: PaymentMethod.WALLET,
+        },
+        'test-order-changed-key',
+      ),
+    ).rejects.toThrow(ConflictException);
+
+    expect(mockTx.order.updateMany).toHaveBeenCalled();
+  });
+
+  it('Dùng lại key đã PAID: trả kết quả cũ, không charge lại', async () => {
+    mockPrisma.payment.findUnique.mockResolvedValue({
+      id: 1,
+      orderId: 1,
+      amount: 94000,
+      method: PaymentMethod.WALLET,
+      status: 'PAID',
+      idempotencyKey: 'reused-key',
+      order: {
+        ...pendingOrder,
+        userId,
+      },
+    });
+
+    const result = await service.createPayment(
+      userId,
+      {
+        orderId: 1,
+        method: PaymentMethod.WALLET,
+      },
+      'reused-key',
+    );
+
+    expect(result.status).toBe('PAID');
+    expect(mockGateway.charge).not.toHaveBeenCalled();
+    expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+  });
+
+  it('Dùng lại key cho request khác: báo ConflictException', async () => {
+    mockPrisma.payment.findUnique.mockResolvedValue({
+      id: 1,
+      orderId: 1,
+      amount: 94000,
+      method: PaymentMethod.WALLET,
+      status: 'PAID',
+      idempotencyKey: 'reused-key',
+      order: {
+        ...pendingOrder,
+        userId,
+      },
     });
 
     await expect(
-      service.createPayment(userId, {
-        orderId: 1,
-        method: PaymentMethod.WALLET,
-      }),
-    ).rejects.toThrow(BadRequestException);
+      service.createPayment(
+        userId,
+        {
+          orderId: 1,
+          method: PaymentMethod.CARD,
+        },
+        'reused-key',
+      ),
+    ).rejects.toThrow(ConflictException);
 
-    expect(mockTx.payment.create).not.toHaveBeenCalled();
+    expect(mockGateway.charge).not.toHaveBeenCalled();
+  });
+
+  it('Key đã tồn tại và đang PROCESSING: không charge lại', async () => {
+    mockPrisma.payment.findUnique.mockResolvedValue({
+      id: 1,
+      orderId: 1,
+      amount: 94000,
+      method: PaymentMethod.WALLET,
+      status: 'PROCESSING',
+      idempotencyKey: 'processing-key',
+      order: {
+        ...pendingOrder,
+        userId,
+      },
+    });
+
+    await expect(
+      service.createPayment(
+        userId,
+        {
+          orderId: 1,
+          method: PaymentMethod.WALLET,
+        },
+        'processing-key',
+      ),
+    ).rejects.toThrow(ConflictException);
+
+    expect(mockGateway.charge).not.toHaveBeenCalled();
   });
 });

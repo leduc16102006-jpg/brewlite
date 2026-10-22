@@ -1,3 +1,6 @@
+// Decorator rỗng an toàn: luôn trả về hàm decorator nhận target, bỏ qua tham số truyền vào
+const dummyDecorator = () => (target, propertyKey, descriptor) => descriptor || target;
+
 class HttpException extends Error {
   constructor(response, status = 500) {
     super(typeof response === 'string' ? response : (response?.message || 'Http Exception'));
@@ -34,7 +37,28 @@ class ForbiddenException extends HttpException {
   }
 }
 
-const Injectable = () => (target) => target;
+class ConflictException extends HttpException {
+  constructor(message = 'Conflict') {
+    super(message, 409);
+    this.name = 'ConflictException';
+  }
+}
+
+class ParseIntPipe {
+  transform(value) {
+    return parseInt(value, 10);
+  }
+}
+
+class Logger {
+  log() {}
+  error() {}
+  warn() {}
+  debug() {}
+  verbose() {}
+}
+
+class ConsoleLogger extends Logger {}
 
 module.exports = {
   __esModule: true,
@@ -43,6 +67,22 @@ module.exports = {
   NotFoundException,
   UnauthorizedException,
   ForbiddenException,
-  Injectable,
+  ConflictException,
+  ParseIntPipe,
+  Logger,
+  ConsoleLogger,
+  Injectable: dummyDecorator,
+  Controller: dummyDecorator,
+  Get: dummyDecorator,
+  Post: dummyDecorator,
+  Patch: dummyDecorator,
+  Put: dummyDecorator,
+  Delete: dummyDecorator,
+  Body: dummyDecorator,
+  Param: dummyDecorator,
+  Req: dummyDecorator,
+  Res: dummyDecorator,
+  Headers: dummyDecorator,
+  UseGuards: dummyDecorator,
   default: {},
 };

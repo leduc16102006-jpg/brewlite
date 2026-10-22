@@ -1,4 +1,3 @@
-
 import {
   BadRequestException,
   Injectable,
@@ -27,7 +26,7 @@ export class OrdersService {
     CANCELLED: [],
   };
 
-// TASK 6: Tạo đơn hàng và trừ tồn kho (Bản chuẩn hỗ trợ đa kích cỡ)
+  // TASK 6 & 10.3 & 10.4: Tạo đơn hàng, áp mã giảm giá, trừ tồn kho bằng Optimistic Locking
   async create(userId: number, dto: CreateOrderDto) {
     if (!dto.items?.length) {
       throw new BadRequestException('Đơn hàng phải có ít nhất một sản phẩm');
@@ -44,146 +43,149 @@ export class OrdersService {
 
     const uniqueProductIds = [...new Set(dto.items.map((item) => item.productId))];
 
-    return this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: { id: true },
-      });
-      if (!user) {
-        throw new UnauthorizedException('Tài khoản không tồn tại');
-      }
-
-      const products = await tx.product.findMany({
-        where: { id: { in: uniqueProductIds } },
-      });
-
-      if (products.length !== uniqueProductIds.length) {
-        throw new NotFoundException('Một hoặc nhiều sản phẩm không tồn tại');
-      }
-
-      const productMap = new Map(products.map((p) => [p.id, p]));
-
-      const productQtyMap = new Map<number, number>();
-      for (const item of dto.items) {
-        const currentQty = productQtyMap.get(item.productId) || 0;
-        productQtyMap.set(item.productId, currentQty + item.qty);
-      }
-
-      let subtotal = 0;
-      const orderItems = dto.items.map((item) => {
-        const product = productMap.get(item.productId);
-        if (!product) {
-          throw new NotFoundException('Sản phẩm không tồn tại');
+    return this.prisma.$transaction(
+      async (tx) => {
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          select: { id: true },
+        });
+        if (!user) {
+          throw new UnauthorizedException('Tài khoản không tồn tại');
         }
 
-        const totalRequiredQty = productQtyMap.get(item.productId) || 0;
-        if (product.stock < totalRequiredQty) {
-          throw new BadRequestException(
-            `Sản phẩm "${product.name}" không đủ tồn kho`,
-          );
-        }
-
-        const lineTotal = Number(product.price) * item.qty;
-        subtotal += lineTotal;
-
-        return {
-          productId: product.id,
-          qty: item.qty,
-          size: item.size || null,
-          lineTotal,
-        };
-      });
-
-      let promotionId: number | null = null;
-      let discountAmount = 0;
-
-      if (dto.promotionCode?.trim()) {
-        const code = dto.promotionCode.trim().toUpperCase();
-
-        const promotion = await tx.promotion.findUnique({
-        where: { code },
+        const products = await tx.product.findMany({
+          where: { id: { in: uniqueProductIds } },
         });
 
-        if (!promotion) {
-          throw new BadRequestException('Mã khuyến mãi không tồn tại');
+        if (products.length !== uniqueProductIds.length) {
+          throw new NotFoundException('Một hoặc nhiều sản phẩm không tồn tại');
         }
 
-        const now = new Date();
+        const productMap = new Map(products.map((p) => [p.id, p]));
 
-        if (
-          !promotion.isActive ||
-          now < promotion.startsAt ||
-          now > promotion.expiresAt
-        ) {
+        const productQtyMap = new Map<number, number>();
+        for (const item of dto.items) {
+          const currentQty = productQtyMap.get(item.productId) || 0;
+          productQtyMap.set(item.productId, currentQty + item.qty);
+        }
+
+        let subtotal = 0;
+        const orderItems = dto.items.map((item) => {
+          const product = productMap.get(item.productId);
+          if (!product) {
+            throw new NotFoundException('Sản phẩm không tồn tại');
+          }
+
+          const totalRequiredQty = productQtyMap.get(item.productId) || 0;
+          if (product.stock < totalRequiredQty) {
             throw new BadRequestException(
-            'Mã khuyến mãi không hoạt động hoặc đã hết hạn',
+              `Sản phẩm "${product.name}" không đủ tồn kho`,
             );
           }
 
-        if (subtotal < promotion.minOrderAmount) {
-          throw new BadRequestException(
-          `Đơn hàng phải đạt tối thiểu ${promotion.minOrderAmount} đồng`,
-          );
-        }
+          const lineTotal = Number(product.price) * item.qty;
+          subtotal += lineTotal;
 
-        if (promotion.value <= 0) {
-          throw new BadRequestException('Giá trị khuyến mãi không hợp lệ');
-        }
-
-        if (promotion.type === 'PERCENT') {
-          discountAmount = Math.floor(
-          (subtotal * promotion.value) / 100,
-          );
-
-          if (promotion.maxDiscount !== null) {
-            discountAmount = Math.min(
-              discountAmount,
-              promotion.maxDiscount,
-            );
-          }
-        } else if (promotion.type === 'FIXED') {
-            discountAmount = promotion.value;
-        } else {
-          throw new BadRequestException(
-          'Loại khuyến mãi không hợp lệ',
-          );
-        }
-
-        // Không giảm quá tổng tiền hàng.
-        discountAmount = Math.min(discountAmount, subtotal);
-        promotionId = promotion.id;
-      }
-
-      const total = subtotal - discountAmount;
-
-      for (const [productId, qtyToDeduct] of productQtyMap.entries()) {
-        const result = await tx.product.updateMany({
-          where: {
-            id: productId,
-            stock: { gte: qtyToDeduct },
-          },
-          data: {
-            stock: { decrement: qtyToDeduct },
-          },
+          return {
+            productId: product.id,
+            qty: item.qty,
+            size: item.size || null,
+            lineTotal,
+          };
         });
-        if (result.count !== 1) {
-          throw new BadRequestException('Tồn kho đã thay đổi. Vui lòng thử lại');
-        }
-      }
 
-      return tx.order.create({
-        data: {
-          userId,
-          subtotal,
-          discountAmount,
-          promotionId,
-          total,
-          status: 'PENDING',
-          items: { create: orderItems },
-        },
-        include: { items: { include: { product: true } } },
-      });
-    });
+        // TASK 10.4: Kiểm tra và áp dụng mã khuyến mãi
+        let promotionId: number | null = null;
+        let discountAmount = 0;
+
+        if (dto.promotionCode?.trim()) {
+          const code = dto.promotionCode.trim().toUpperCase();
+          const promotion = await tx.promotion.findUnique({
+            where: { code },
+          });
+
+          if (!promotion) {
+            throw new BadRequestException('Mã khuyến mãi không tồn tại');
+          }
+
+          const now = new Date();
+          if (
+            !promotion.isActive ||
+            now < promotion.startsAt ||
+            now > promotion.expiresAt
+          ) {
+            throw new BadRequestException(
+              'Mã khuyến mãi không hoạt động hoặc đã hết hạn',
+            );
+          }
+
+          if (subtotal < promotion.minOrderAmount) {
+            throw new BadRequestException(
+              `Đơn hàng phải đạt tối thiểu ${promotion.minOrderAmount} đồng`,
+            );
+          }
+
+          if (promotion.type === 'PERCENT') {
+            discountAmount = Math.floor((subtotal * promotion.value) / 100);
+            if (promotion.maxDiscount !== null) {
+              discountAmount = Math.min(discountAmount, promotion.maxDiscount);
+            }
+          } else if (promotion.type === 'FIXED') {
+            discountAmount = promotion.value;
+          }
+
+          discountAmount = Math.min(discountAmount, subtotal);
+          promotionId = promotion.id;
+        }
+
+        const total = subtotal - discountAmount;
+
+        // TASK 10.3: Trừ tồn kho bằng Optimistic Locking (chống Deadlock và Race Condition)
+        for (const [productId, qtyToDeduct] of [
+          ...productQtyMap.entries(),
+        ].sort((a, b) => a[0] - b[0])) {
+          const product = productMap.get(productId);
+          if (!product) {
+            throw new NotFoundException('Sản phẩm không tồn tại');
+          }
+
+          const result = await tx.product.updateMany({
+            where: {
+              id: productId,
+              version: product.version,
+              stock: { gte: qtyToDeduct },
+            },
+            data: {
+              stock: { decrement: qtyToDeduct },
+              version: { increment: 1 },
+            },
+          });
+
+          if (result.count !== 1) {
+            throw new BadRequestException(
+              'Tồn kho đã thay đổi. Vui lòng thử lại',
+            );
+          }
+        }
+
+        return tx.order.create({
+          data: {
+            userId,
+            subtotal,
+            discountAmount,
+            promotionId,
+            total,
+            status: 'PENDING',
+            items: { create: orderItems },
+          },
+          include: { items: { include: { product: true } } },
+        });
+      },
+      {
+        maxWait: 10000,
+        timeout: 20000,
+      },
+    );
   }
 
   // TASK 10.1: Chuyển trạng thái, xử lý ngoại lệ và tồn kho.
@@ -214,7 +216,6 @@ export class OrdersService {
         );
       }
 
-      // Chỉ một request được chuyển từ trạng thái cũ.
       const changed = await tx.order.updateMany({
         where: {
           id: orderId,
@@ -231,15 +232,10 @@ export class OrdersService {
         );
       }
 
-      // PAYMENT_FAILED và CANCELLED từ PENDING:
-      // hoàn kho vì Task 6 đã trừ kho khi tạo đơn.
       const releaseStock =
         currentStatus === 'PENDING' &&
-        (nextStatus === 'PAYMENT_FAILED' ||
-          nextStatus === 'CANCELLED');
+        (nextStatus === 'PAYMENT_FAILED' || nextStatus === 'CANCELLED');
 
-      // PAID -> CANCELLED: hoàn kho theo sơ đồ.
-      // Quy trình hoàn tiền cổng thanh toán phải được xử lý riêng.
       const cancelPaidOrder =
         currentStatus === 'PAID' && nextStatus === 'CANCELLED';
 
@@ -249,13 +245,12 @@ export class OrdersService {
             where: { id: item.productId },
             data: {
               stock: { increment: item.qty },
+              version: { increment: 1 },
             },
           });
         }
       }
 
-      // PAYMENT_FAILED -> PENDING: thử thanh toán lại.
-      // Giữ kho lần nữa trước khi cho phép thử lại.
       if (
         currentStatus === 'PAYMENT_FAILED' &&
         nextStatus === 'PENDING'
@@ -268,6 +263,7 @@ export class OrdersService {
             },
             data: {
               stock: { decrement: item.qty },
+              version: { increment: 1 },
             },
           });
 
@@ -288,5 +284,39 @@ export class OrdersService {
         },
       });
     });
+  }
+
+  // TASK 9: Lấy toàn bộ lịch sử đơn hàng của người dùng hiện tại
+  async findMyOrders(userId: number) {
+    return this.prisma.order.findMany({
+      where: { userId },
+      include: {
+        items: {
+          include: { product: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // TASK 9: Xem chi tiết một đơn hàng cụ thể
+  async findOne(userId: number, orderId: number) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId,
+      },
+      include: {
+        items: {
+          include: { product: true },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Không tìm thấy đơn hàng');
+    }
+
+    return order;
   }
 }
