@@ -51,6 +51,10 @@ describe('PaymentsService', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
+    // THÊM ĐOẠN NÀY VÀO:
+    loyaltyTransaction: {
+      create: jest.fn().mockResolvedValue({ id: 1, points: 9 }),
+    },
   };
 
   const mockPrisma = {
@@ -60,6 +64,10 @@ describe('PaymentsService', () => {
     payment: {
       findUnique: jest.fn(),
       create: jest.fn(),
+    },
+    // THÊM ĐOẠN NÀY VÀO:
+    loyaltyTransaction: {
+      create: jest.fn().mockResolvedValue({ id: 1, points: 9 }),
     },
     $transaction: jest.fn(),
   };

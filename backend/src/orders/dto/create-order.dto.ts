@@ -9,6 +9,7 @@ import {
   MaxLength,
   Min,
   ValidateNested,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -37,4 +38,12 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
+  @ApiPropertyOptional({
+    example: 'WELCOME10',
+    description: 'Mã khuyến mãi (không bắt buộc)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  promotionCode?: string;
 }

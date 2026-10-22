@@ -26,7 +26,7 @@ export class OrdersService {
     CANCELLED: [],
   };
 
-  // TASK 6: Tạo đơn hàng và trừ tồn kho (Bản chuẩn hỗ trợ đa kích cỡ)
+  // TASK 6 & 10.3 & 10.4: Tạo đơn hàng, áp mã giảm giá, trừ tồn kho bằng Optimistic Locking
   async create(userId: number, dto: CreateOrderDto) {
     if (!dto.items?.length) {
       throw new BadRequestException('Đơn hàng phải có ít nhất một sản phẩm');
@@ -43,99 +43,149 @@ export class OrdersService {
 
     const uniqueProductIds = [...new Set(dto.items.map((item) => item.productId))];
 
-    return this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: { id: true },
-      });
-      if (!user) {
-        throw new UnauthorizedException('Tài khoản không tồn tại');
-      }
-
-      const products = await tx.product.findMany({
-        where: { id: { in: uniqueProductIds } },
-      });
-
-      if (products.length !== uniqueProductIds.length) {
-        throw new NotFoundException('Một hoặc nhiều sản phẩm không tồn tại');
-      }
-
-      const productMap = new Map(products.map((p) => [p.id, p]));
-
-      const productQtyMap = new Map<number, number>();
-      for (const item of dto.items) {
-        const currentQty = productQtyMap.get(item.productId) || 0;
-        productQtyMap.set(item.productId, currentQty + item.qty);
-      }
-
-      let total = 0;
-      const orderItems = dto.items.map((item) => {
-        const product = productMap.get(item.productId);
-        if (!product) {
-          throw new NotFoundException('Sản phẩm không tồn tại');
+    return this.prisma.$transaction(
+      async (tx) => {
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          select: { id: true },
+        });
+        if (!user) {
+          throw new UnauthorizedException('Tài khoản không tồn tại');
         }
 
-        const totalRequiredQty = productQtyMap.get(item.productId) || 0;
-        if (product.stock < totalRequiredQty) {
-          throw new BadRequestException(
-            `Sản phẩm "${product.name}" không đủ tồn kho`,
-          );
-        }
-
-        const lineTotal = Number(product.price) * item.qty;
-        total += lineTotal;
-
-        return {
-          productId: product.id,
-          qty: item.qty,
-          size: item.size || null,
-          lineTotal,
-        };
-      });
-      for (const [productId, qtyToDeduct] of [
-        ...productQtyMap.entries(),
-      ].sort((a, b) => a[0] - b[0])) {
-        const product = productMap.get(productId);
-
-        if (!product) {
-          throw new NotFoundException(
-            'Sản phẩm không tồn tại',
-          );
-        }
-
-        const result = await tx.product.updateMany({
-          where: {
-            id: productId,
-            version: product.version,
-            stock: { gte: qtyToDeduct },
-          },
-          data: {
-            stock: { decrement: qtyToDeduct },
-            version: { increment: 1 },
-          },
+        const products = await tx.product.findMany({
+          where: { id: { in: uniqueProductIds } },
         });
 
-        if (result.count !== 1) {
-          throw new BadRequestException(
-            'Tồn kho đã thay đổi. Vui lòng thử lại',
-          );
+        if (products.length !== uniqueProductIds.length) {
+          throw new NotFoundException('Một hoặc nhiều sản phẩm không tồn tại');
         }
-      }
 
+        const productMap = new Map(products.map((p) => [p.id, p]));
 
-      return tx.order.create({
-        data: {
-          userId,
-          total,
-          status: 'PENDING',
-          items: { create: orderItems },
-        },
-        include: { items: { include: { product: true } } },
-      });
-    }, {
-      maxWait: 10000,
-      timeout: 20000,
-    });
+        const productQtyMap = new Map<number, number>();
+        for (const item of dto.items) {
+          const currentQty = productQtyMap.get(item.productId) || 0;
+          productQtyMap.set(item.productId, currentQty + item.qty);
+        }
+
+        let subtotal = 0;
+        const orderItems = dto.items.map((item) => {
+          const product = productMap.get(item.productId);
+          if (!product) {
+            throw new NotFoundException('Sản phẩm không tồn tại');
+          }
+
+          const totalRequiredQty = productQtyMap.get(item.productId) || 0;
+          if (product.stock < totalRequiredQty) {
+            throw new BadRequestException(
+              `Sản phẩm "${product.name}" không đủ tồn kho`,
+            );
+          }
+
+          const lineTotal = Number(product.price) * item.qty;
+          subtotal += lineTotal;
+
+          return {
+            productId: product.id,
+            qty: item.qty,
+            size: item.size || null,
+            lineTotal,
+          };
+        });
+
+        // TASK 10.4: Kiểm tra và áp dụng mã khuyến mãi
+        let promotionId: number | null = null;
+        let discountAmount = 0;
+
+        if (dto.promotionCode?.trim()) {
+          const code = dto.promotionCode.trim().toUpperCase();
+          const promotion = await tx.promotion.findUnique({
+            where: { code },
+          });
+
+          if (!promotion) {
+            throw new BadRequestException('Mã khuyến mãi không tồn tại');
+          }
+
+          const now = new Date();
+          if (
+            !promotion.isActive ||
+            now < promotion.startsAt ||
+            now > promotion.expiresAt
+          ) {
+            throw new BadRequestException(
+              'Mã khuyến mãi không hoạt động hoặc đã hết hạn',
+            );
+          }
+
+          if (subtotal < promotion.minOrderAmount) {
+            throw new BadRequestException(
+              `Đơn hàng phải đạt tối thiểu ${promotion.minOrderAmount} đồng`,
+            );
+          }
+
+          if (promotion.type === 'PERCENT') {
+            discountAmount = Math.floor((subtotal * promotion.value) / 100);
+            if (promotion.maxDiscount !== null) {
+              discountAmount = Math.min(discountAmount, promotion.maxDiscount);
+            }
+          } else if (promotion.type === 'FIXED') {
+            discountAmount = promotion.value;
+          }
+
+          discountAmount = Math.min(discountAmount, subtotal);
+          promotionId = promotion.id;
+        }
+
+        const total = subtotal - discountAmount;
+
+        // TASK 10.3: Trừ tồn kho bằng Optimistic Locking (chống Deadlock và Race Condition)
+        for (const [productId, qtyToDeduct] of [
+          ...productQtyMap.entries(),
+        ].sort((a, b) => a[0] - b[0])) {
+          const product = productMap.get(productId);
+          if (!product) {
+            throw new NotFoundException('Sản phẩm không tồn tại');
+          }
+
+          const result = await tx.product.updateMany({
+            where: {
+              id: productId,
+              version: product.version,
+              stock: { gte: qtyToDeduct },
+            },
+            data: {
+              stock: { decrement: qtyToDeduct },
+              version: { increment: 1 },
+            },
+          });
+
+          if (result.count !== 1) {
+            throw new BadRequestException(
+              'Tồn kho đã thay đổi. Vui lòng thử lại',
+            );
+          }
+        }
+
+        return tx.order.create({
+          data: {
+            userId,
+            subtotal,
+            discountAmount,
+            promotionId,
+            total,
+            status: 'PENDING',
+            items: { create: orderItems },
+          },
+          include: { items: { include: { product: true } } },
+        });
+      },
+      {
+        maxWait: 10000,
+        timeout: 20000,
+      },
+    );
   }
 
   // TASK 10.1: Chuyển trạng thái, xử lý ngoại lệ và tồn kho.

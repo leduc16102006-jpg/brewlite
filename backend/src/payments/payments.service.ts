@@ -202,7 +202,19 @@ export class PaymentsService {
         where: { id: payment.id },
         data: { status },
       });
-    });
+      if (status === 'PAID') {
+      const points = Math.floor(order.total / 10_000);
+
+      await tx.loyaltyTransaction.create({
+        data: {
+          userId: order.userId,
+          orderId: order.id,
+          points,
+        },
+      });
+      }
+    }
+  );
 
     return this.toResult(order.id, dto.method, status);
   }
