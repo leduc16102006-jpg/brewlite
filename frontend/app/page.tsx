@@ -1,446 +1,296 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useCart } from "@/context/CartContext";
+import { getProducts } from "@/lib/api";
 
-type Product = {
-  id: number;
-  name: string;
-  price: number;
-  imageUrl: string;
-};
-
-const API_URL = "http://localhost:3000/products";
-
-const sizes = [
-  { label: "S", extra: 0 },
-  { label: "M", extra: 5000 },
-  { label: "L", extra: 10000 },
+// Danh mục chuẩn đầy đủ 10 món theo Seed của Backend Task 2
+const defaultProducts = [
+  { id: 1, name: "Americano", price: 39000, category: "Cà phê đen", image: "/images/americano.jpg" },
+  { id: 2, name: "Latte", price: 55000, category: "Cà phê sữa", image: "/images/latte.jpg" },
+  { id: 3, name: "Bac Xiu", price: 45000, category: "Cà phê sữa", image: "/images/latte.jpg" },
+  { id: 4, name: "Black coffee", price: 35000, category: "Cà phê đen", image: "/images/americano.jpg" },
+  { id: 5, name: "Macchiato", price: 55000, category: "Cà phê sữa", image: "/images/latte.jpg" },
+  { id: 6, name: "Milk coffee", price: 45000, category: "Cà phê sữa", image: "/images/latte.jpg" },
+  { id: 7, name: "Espresso", price: 35000, category: "Cà phê đen", image: "/images/americano.jpg" },
+  { id: 8, name: "Cappuccino", price: 55000, category: "Cà phê sữa", image: "/images/latte.jpg" },
+  { id: 9, name: "Mocha", price: 59000, category: "Khác", image: "/images/latte.jpg" },
+  { id: 10, name: "Cold Brew", price: 49000, category: "Cà phê đen", image: "/images/americano.jpg" },
 ];
 
-const toppings = [
-  { id: "pearl", name: "Trân châu", price: 7000 },
-  { id: "espresso", name: "Extra shot", price: 10000 },
-  { id: "cream", name: "Kem cheese", price: 10000 },
+const toppingsList = [
+  { name: "Trân châu", price: 7000 },
+  { name: "Extra shot", price: 10000 },
+  { name: "Kem cheese", price: 10000 },
 ];
 
-const categories = ["Tất cả", "Cà phê đen", "Cà phê sữa", "Khác"];
-
-function getCategory(name: string) {
-  const lowerName = name.toLowerCase();
-
-  if (["americano", "espresso", "black coffee"].includes(lowerName)) {
-    return "Cà phê đen";
-  }
-
-  if (["latte", "cappuccino", "bac xiu", "milk coffee"].includes(lowerName)) {
-    return "Cà phê sữa";
-  }
-
-  return "Khác";
-}
-
-function formatPrice(price: number) {
-  return new Intl.NumberFormat("vi-VN").format(price) + "đ";
-}
-
-export default function Home() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("Tất cả");
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [selectedSize, setSelectedSize] = useState("M");
+export default function HomePage() {
+  const { addToCart, totalQty } = useCart();
+  const [products, setProducts] = useState<any[]>(defaultProducts);
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [size, setSize] = useState<"S" | "M" | "L">("M");
   const [selectedToppings, setSelectedToppings] = useState<string[]>([]);
-  const totalPrice = selectedProduct
-  ? selectedProduct.price +
-    (sizes.find((size) => size.label === selectedSize)?.extra ?? 0) +
-    toppings
-      .filter((topping) => selectedToppings.includes(topping.id))
-      .reduce((total, topping) => total + topping.price, 0)
-  : 0;
-
-  async function fetchProducts() {
-  setLoading(true);
-  setError("");
-
-  try {
-    const response = await fetch(API_URL);
-
-    if (!response.ok) {
-      throw new Error("Không thể tải sản phẩm");
-    }
-
-    const data: Product[] = await response.json();
-    setProducts(data);
-  } catch {
-    // Dữ liệu tạm thời
-    setProducts([
-      { id: 1, name: "Americano", price: 39000, imageUrl: "/images/americano.jpg" },
-      { id: 2, name: "Latte", price: 55000, imageUrl: "/images/latte.jpg" },
-      { id: 3, name: "Cappuccino", price: 55000, imageUrl: "/images/cappuccino.jpg" },
-      { id: 4, name: "Bạc Xỉu", price: 45000, imageUrl: "/images/bac-xiu.jpg" },
-      { id: 5, name: "Black coffee", price: 35000, imageUrl: "/images/black-coffee.jpg" },
-      { id: 6, name: "Macchiato", price: 55000, imageUrl: "/images/macchiato.jpg" },
-      { id: 7, name: "Espresso", price: 39000, imageUrl: "/images/espresso.jpg" },
-      { id: 8, name: "Milk coffee", price: 45000, imageUrl: "/images/milk-coffee.jpg" },
-      { id: 9, name: "Mocha", price: 55000, imageUrl: "/images/mocha.jpg" },
-      { id: 10, name: "Salty coffee", price: 45000, imageUrl: "/images/salty-coffee.jpg" },
-    ]);
-  } finally {
-    setLoading(false);
-  }
-}
+  const [toastMsg, setToastMsg] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("Tất cả");
 
   useEffect(() => {
-    void fetchProducts();
+    // 1. Kiểm tra trạng thái đăng nhập
+    const token = localStorage.getItem("accessToken");
+    setIsLoggedIn(!!token);
+
+    // 2. Tải 10 món thật từ API Backend Task 2
+    async function loadData() {
+      const data = await getProducts();
+      if (data && Array.isArray(data) && data.length > 0) {
+        setProducts(data);
+      }
+    }
+    loadData();
   }, []);
 
-  const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      const matchesSearch = product.name
-        .toLowerCase()
-        .includes(search.trim().toLowerCase());
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("token");
+    setIsLoggedIn(false);
+    setToastMsg("Đã đăng xuất thành công!");
+    setTimeout(() => setToastMsg(""), 3000);
+  };
 
-      const matchesCategory =
-        activeCategory === "Tất cả" ||
-        getCategory(product.name) === activeCategory;
-
-      return matchesSearch && matchesCategory;
+  const calculateCustomPrice = () => {
+    if (!selectedProduct) return 0;
+    let base = selectedProduct.price;
+    if (size === "M") base += 5000;
+    if (size === "L") base += 10000;
+    selectedToppings.forEach((topName) => {
+      const top = toppingsList.find((t) => t.name === topName);
+      if (top) base += top.price;
     });
-  }, [products, search, activeCategory]);
+    return base;
+  };
+
+  const handleConfirmAddToCart = () => {
+    if (!selectedProduct) return;
+    const finalPrice = calculateCustomPrice();
+
+    addToCart({
+      productId: selectedProduct.id,
+      name: selectedProduct.name,
+      price: finalPrice,
+      size,
+      toppings: selectedToppings,
+      image: selectedProduct.imageUrl || selectedProduct.image || "/images/latte.jpg",
+    });
+
+    setSelectedProduct(null);
+    setSelectedToppings([]);
+    setSize("M");
+
+    setToastMsg(`Đã thêm ${selectedProduct.name} vào giỏ hàng!`);
+    setTimeout(() => setToastMsg(""), 3000);
+  };
+
+  const categories = ["Tất cả", "Cà phê đen", "Cà phê sữa", "Khác"];
+  const filteredProducts =
+    activeCategory === "Tất cả"
+      ? products
+      : products.filter((p) => p.category === activeCategory);
 
   return (
     <main className="min-h-screen bg-[#faf7f2] text-[#35251f]">
-      {/* Header */}
-      <header className="border-b border-[#e9dfd4] bg-[#faf7f2]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 md:px-10">
-          <a href="/" className="text-2xl font-black tracking-tight">
-            BREW<span className="text-[#a16b4b]">LITE</span>
-          </a>
+      {/* Toast thông báo */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl bg-[#35251f] px-5 py-4 text-white shadow-2xl transition animate-bounce">
+          <span>☕ {toastMsg}</span>
+          <Link href="/cart" className="rounded-lg bg-[#a16b4b] px-3 py-1 text-xs font-bold hover:bg-[#8f5a3b]">
+            Vào giỏ ngay →
+          </Link>
+        </div>
+      )}
 
-          <button
-            onClick={() =>
-              document
-                .getElementById("menu")
-                ?.scrollIntoView({ behavior: "smooth" })
-            }
-            className="rounded-full bg-[#35251f] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#634536]"
-          >
-            Khám phá menu ↓
-          </button>
+      {/* Navbar Điều Hướng */}
+      <header className="sticky top-0 z-40 border-b border-[#e9dfd4] bg-[#faf7f2]/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
+          <Link href="/" className="text-2xl font-black tracking-tight">
+            BREW<span className="text-[#a16b4b]">LITE</span>
+          </Link>
+
+          <div className="flex items-center gap-3">
+            <Link
+              href="/cart"
+              className="relative flex items-center gap-2 rounded-full border border-[#e5d8ca] bg-white px-4 py-2 text-sm font-bold shadow-sm transition hover:border-[#a16b4b]"
+            >
+              <span>🛒 Giỏ hàng</span>
+              {totalQty > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#a16b4b] text-[11px] font-black text-white">
+                  {totalQty}
+                </span>
+              )}
+            </Link>
+
+            <Link
+              href="/orders"
+              className="rounded-full border border-[#e5d8ca] bg-white px-4 py-2 text-sm font-semibold transition hover:border-[#a16b4b]"
+            >
+              Lịch sử đơn
+            </Link>
+
+            {isLoggedIn ? (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Đăng xuất
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                className="rounded-full bg-[#35251f] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#634536]"
+              >
+                Đăng nhập
+              </Link>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="mx-auto grid max-w-7xl items-center gap-8 px-5 py-14 md:grid-cols-2 md:px-10 md:py-20">
-        <div>
-          <p className="mb-4 text-sm font-bold uppercase tracking-[0.25em] text-[#a16b4b]">
-            Freshly brewed, just for you
-          </p>
+      {/* Menu Header & Filter Category */}
+      <div className="mx-auto max-w-6xl px-5 py-10">
+        <div className="text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#a16b4b]">FIND YOUR FAVORITE</p>
+          <h1 className="mt-2 text-4xl font-black" style={{ fontFamily: "Georgia, serif" }}>MENU</h1>
+          <p className="mt-1 text-sm text-[#8b796b]">Những lựa chọn dành riêng cho bạn mỗi ngày ({products.length} món)</p>
 
-          <h1 className="max-w-xl text-5xl font-black leading-tight tracking-tight md:text-7xl"
-          >
-            Một chút cà phê,
-            <span className="text-[#a16b4b]"> một chút chill.</span>
-          </h1>
-
-          <p className="mt-6 max-w-md leading-7 text-[#806e62]">
-            Tìm thức uống yêu thích của bạn và biến mỗi ngày thành một trải
-            nghiệm thật đặc biệt.
-          </p> 
-          
-
-          <button
-            onClick={() =>
-              document
-                .getElementById("menu")
-                ?.scrollIntoView({ behavior: "smooth" })
-            }
-            className="mt-8 rounded-full bg-[#a16b4b] px-7 py-3.5 font-semibold text-white transition hover:bg-[#805238]"
-          >
-            Xem menu ngay →
-          </button>
-        </div>
-
-        <div className="relative min-h-64 overflow-hidden rounded-[2rem] bg-[#e9ddce] md:min-h-96">
-          <div className="absolute -right-8 -top-8 h-48 w-48 rounded-full bg-[#d2b69a]" />
-          <div className="absolute -bottom-12 -left-8 h-48 w-48 rounded-full bg-[#d9c1a9]" />
-
-          <img
-            src="/images/coffee.jpg"
-            alt="A cozy cup of coffee"
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-        </div>
-      </section>
-
-      {/* Menu */}
-      <section id="menu" className="mx-auto max-w-7xl px-5 pb-20 md:px-10">
-        <div className="mb-8">
-          <p className="mb-2 text-sm font-bold uppercase tracking-[0.2em] text-[#a16b4b]">
-            Find your favorite
-          </p>
-          <h2 className="text-3xl font-black md:text-4xl">MENU</h2>
-          <p className="mt-3 text-[#806e62]">
-            Những lựa chọn dành riêng cho bạn ngày hôm nay.
-          </p>
-        </div>
-
-        {/* Search */}
-        <div className="mb-5">
-          <input
-            type="text"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Tìm Americano, Latte, Mocha..."
-            aria-label="Tìm đồ uống"
-            className="w-full rounded-2xl border border-[#e5d8ca] bg-white px-5 py-4 outline-none transition placeholder:text-[#b2a397] focus:border-[#a16b4b] md:max-w-md"
-          />
-        </div>
-
-        {/* Category filters */}
-        <div className="mb-8 flex flex-wrap gap-3">
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setActiveCategory(category)}
-              className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${
-                activeCategory === category
-                  ? "bg-[#35251f] text-white"
-                  : "border border-[#e5d8ca] bg-white text-[#806e62] hover:border-[#a16b4b]"
-              }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-
-        {/* Loading state */}
-        {loading && (
-          <div className="py-20 text-center">
-            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-[#e5d8ca] border-t-[#a16b4b]" />
-            <p className="text-[#806e62]">Đang pha menu cho bạn...</p>
-          </div>
-        )}
-
-        {/* Error state */}
-        {!loading && error && (
-          <div className="rounded-3xl border border-[#ead6c8] bg-white p-10 text-center">
-            <p className="text-4xl">☕</p>
-            <p className="mt-4 font-bold">{error}</p>
-            <button
-              onClick={() => void fetchProducts()}
-              className="mt-5 rounded-full bg-[#35251f] px-6 py-3 font-semibold text-white hover:bg-[#634536]"
-            >
-              Thử lại
-            </button>
-          </div>
-        )}
-
-        {/* Product list */}
-        {!loading && !error && filteredProducts.length > 0 && (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredProducts.map((product) => (
-              <article
-                key={product.id}
-                className="group overflow-hidden rounded-3xl border border-[#eee4da] bg-white transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+          <div className="mt-6 flex justify-center gap-2">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setActiveCategory(cat)}
+                className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
+                  activeCategory === cat
+                    ? "bg-[#35251f] text-white"
+                    : "border border-[#e5d8ca] bg-white text-[#806e62] hover:border-[#a16b4b]"
+                }`}
               >
-                <div className="relative h-56 overflow-hidden bg-[#f0e7dc]">
-                  <img
-                    src={product.imageUrl}
-                    alt={product.name}
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                  />
-
-                  <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-[#806e62]">
-                    {getCategory(product.name)}
-                  </span>
-                </div>
-
-                <div className="p-5">
-                  <h3 className="text-xl font-bold">{product.name}</h3>
-
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <p className="text-lg font-extrabold text-[#a16b4b]">
-                      {formatPrice(product.price)}
-                    </p>
-
-                    <button
-                      onClick={() => setSelectedProduct(product)}
-                      aria-label={`Xem chi tiết ${product.name}`}
-                      className="rounded-full bg-[#35251f] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#a16b4b]"
-                    >
-                      Chi tiết +
-                    </button>
-                  </div>
-                </div>
-              </article>
+                {cat}
+              </button>
             ))}
           </div>
-        )}
+        </div>
 
-        {/* Empty state */}
-        {!loading && !error && filteredProducts.length === 0 && (
-          <div className="rounded-3xl bg-white px-5 py-16 text-center">
-            <p className="text-5xl">🔎</p>
-            <h3 className="mt-4 text-xl font-bold">Chưa tìm thấy món phù hợp</h3>
-            <p className="mt-2 text-[#806e62]">
-              Bạn thử từ khóa khác hoặc chọn danh mục khác nha.
-            </p>
-            <button
-              onClick={() => {
-                setSearch("");
-                setActiveCategory("Tất cả");
-              }}
-              className="mt-5 font-bold text-[#a16b4b] underline"
-            >
-              Xóa bộ lọc
-            </button>
-          </div>
-        )}
-
-        <p className="mt-8 text-center text-sm text-[#a49385]">
-          BrewLite · Chậm một chút, yêu nhiều hơn.
-        </p>
-      </section>
-
-          {/* Product detail */}
-    {selectedProduct && (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5"
-        onClick={() => setSelectedProduct(null)}
-      >
-        <section
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="product-title"
-          className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-[#faf7f2] p-7 shadow-2xl"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div className="mb-5 flex items-center justify-between">
-            <p className="text-sm font-bold uppercase tracking-widest text-[#a16b4b]">
-              Customize your drink
-            </p>
-
-            <button
-              onClick={() => setSelectedProduct(null)}
-              aria-label="Đóng chi tiết sản phẩm"
-              className="rounded-full px-3 py-1 text-xl hover:bg-[#e9ddce]"
-            >
-              ×
-            </button>
-          </div>
-
-          <div className="h-40 overflow-hidden rounded-2xl bg-[#e9ddce]">
-            <img
-              src={selectedProduct.imageUrl}
-              alt={selectedProduct.name}
-              className="h-full w-full object-cover"
-            />
-          </div>
-
-          <h2 id="product-title" className="mt-5 text-2xl font-black">
-            {selectedProduct.name}
-          </h2>
-
-          <p className="mt-2 text-sm text-[#806e62]">
-            Tùy chỉnh thức uống theo sở thích của bạn.
-          </p>
-
-          {/* Choose size */}
-          <div className="mt-6">
-            <h3 className="mb-3 font-bold">1. Chọn size</h3>
-
-            <div className="grid grid-cols-3 gap-3">
-              {sizes.map((size) => (
-                <button
-                  key={size.label}
-                  onClick={() => setSelectedSize(size.label)}
-                  className={`rounded-xl border p-3 transition ${
-                    selectedSize === size.label
-                      ? "border-[#a16b4b] bg-[#ead9c8] text-[#35251f]"
-                      : "border-[#e5d8ca] bg-white"
-                  }`}
-                >
-                  <span className="block font-bold">{size.label}</span>
-                  <span className="mt-1 block text-xs">
-                    {size.extra === 0
-                      ? "Giá gốc"
-                      : `+${formatPrice(size.extra)}`}
-                  </span>
-                </button>
-              ))}
+        {/* Lưới sản phẩm (Hiển thị đầy đủ 10 món) */}
+        <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
+          {filteredProducts.map((p) => (
+            <div key={p.id} className="rounded-3xl border border-[#eee3d7] bg-white p-5 shadow-sm transition hover:shadow-lg">
+              <div className="h-44 w-full overflow-hidden rounded-2xl bg-[#f3e8db]">
+                <img
+                  src={p.imageUrl || p.image || "/images/latte.jpg"}
+                  alt={p.name}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="mt-4 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-lg">{p.name}</h3>
+                  <p className="text-xs text-[#8b796b]">{p.category || "Cà phê"}</p>
+                </div>
+                <p className="font-black text-[#a16b4b]">
+                  {new Intl.NumberFormat("vi-VN").format(p.price)}đ
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedProduct(p)}
+                className="mt-4 w-full rounded-xl bg-[#35251f] py-2.5 text-xs font-bold text-white transition hover:bg-[#634536]"
+              >
+                Chọn món & Tùy chỉnh +
+              </button>
             </div>
-          </div>
-
-          {/* Choose toppings */}
-          <div className="mt-6">
-            <h3 className="mb-3 font-bold">2. Thêm topping</h3>
-
-            <div className="space-y-3">
-              {toppings.map((topping) => {
-                const checked = selectedToppings.includes(topping.id);
-
-                return (
-                  <label
-                    key={topping.id}
-                    className="flex cursor-pointer items-center justify-between rounded-xl border border-[#e5d8ca] bg-white p-4"
-                  >
-                    <span className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          setSelectedToppings((current) =>
-                            checked
-                              ? current.filter((id) => id !== topping.id)
-                              : [...current, topping.id]
-                          );
-                        }}
-                        className="h-4 w-4 accent-[#a16b4b]"
-                      />
-                      <span className="font-medium">{topping.name}</span>
-                    </span>
-
-                    <span className="text-sm font-semibold text-[#a16b4b]">
-                      +{formatPrice(topping.price)}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Total */}
-          <div className="mt-6 rounded-2xl bg-[#eadfd2] p-5">
-            <p className="text-sm text-[#806e62]">Tổng tiền tạm tính</p>
-            <p className="mt-1 text-2xl font-black text-[#a16b4b]">
-              {formatPrice(totalPrice)}
-            </p>
-          </div>
-
-          <button
-            onClick={() => {
-              alert(
-                `${selectedProduct.name} · Size ${selectedSize}\n` +
-                  `Topping: ${
-                    toppings
-                      .filter((topping) =>
-                        selectedToppings.includes(topping.id)
-                      )
-                      .map((topping) => topping.name)
-                      .join(", ") || "Không có"
-                  }\nTổng tiền: ${formatPrice(totalPrice)}`
-              );
-            }}
-            className="mt-5 w-full rounded-full bg-[#35251f] py-3.5 font-bold text-white transition hover:bg-[#634536]"
-          >
-            Xác nhận lựa chọn
-          </button>
-        </section>
+          ))}
+        </div>
       </div>
-    )}
+
+      {/* Modal tùy chỉnh */}
+      {selectedProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <h2 className="text-xl font-black">{selectedProduct.name}</h2>
+            <p className="text-xs text-[#8b796b] mt-1">Tùy chỉnh thức uống theo sở thích của bạn</p>
+
+            <div className="mt-4">
+              <p className="text-xs font-bold uppercase text-[#8b796b]">1. Chọn size</p>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {(["S", "M", "L"] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSize(s)}
+                    className={`rounded-xl border p-2 text-center text-xs font-bold transition ${
+                      size === s ? "border-[#a16b4b] bg-[#faf7f2] text-[#a16b4b]" : "border-[#e5d8ca]"
+                    }`}
+                  >
+                    Size {s} {s === "M" ? "(+5k)" : s === "L" ? "(+10k)" : "(Gốc)"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-xs font-bold uppercase text-[#8b796b]">2. Thêm topping</p>
+              <div className="mt-2 space-y-2">
+                {toppingsList.map((top) => {
+                  const checked = selectedToppings.includes(top.name);
+                  return (
+                    <label key={top.name} className="flex cursor-pointer items-center justify-between rounded-xl border border-[#eee3d7] p-2.5 text-xs font-semibold">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            if (checked) setSelectedToppings(selectedToppings.filter((t) => t !== top.name));
+                            else setSelectedToppings([...selectedToppings, top.name]);
+                          }}
+                          className="accent-[#a16b4b]"
+                        />
+                        <span>{top.name}</span>
+                      </div>
+                      <span className="text-[#a16b4b]">+{new Intl.NumberFormat("vi-VN").format(top.price)}đ</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl bg-[#faf7f2] p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-[#8b796b]">Tổng tiền tạm tính</p>
+                <p className="text-lg font-black text-[#a16b4b]">
+                  {new Intl.NumberFormat("vi-VN").format(calculateCustomPrice())}đ
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedProduct(null)}
+                  className="rounded-xl border border-[#e5d8ca] px-3 py-2 text-xs font-bold text-stone-500"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmAddToCart}
+                  className="rounded-xl bg-[#35251f] px-4 py-2 text-xs font-bold text-white hover:bg-[#634536]"
+                >
+                  Xác nhận lựa chọn
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
