@@ -1,4 +1,3 @@
-
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMinSize,
@@ -12,6 +11,23 @@ import {
   IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export class CreateOrderToppingDto {
+  @ApiProperty({ example: 'pearl' })
+  @IsString()
+  @MaxLength(50)
+  id: string;
+
+  @ApiProperty({ example: 'Trân châu' })
+  @IsString()
+  @MaxLength(100)
+  name: string;
+
+  @ApiProperty({ example: 7000, minimum: 0 })
+  @IsInt()
+  @Min(0)
+  price: number;
+}
 
 export class CreateOrderItemDto {
   @ApiProperty({ example: 1, minimum: 1 })
@@ -27,8 +43,15 @@ export class CreateOrderItemDto {
   @ApiPropertyOptional({ example: 'M', maxLength: 50 })
   @IsOptional()
   @IsString()
-  @MaxLength(50)
+  @IsIn(['S', 'M', 'L'])
   size?: string;
+
+  @ApiPropertyOptional({ type: [CreateOrderToppingDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderToppingDto)
+  toppings?: CreateOrderToppingDto[];
 }
 
 export class CreateOrderDto {
@@ -38,6 +61,7 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
+
   @ApiPropertyOptional({
     example: 'WELCOME10',
     description: 'Mã khuyến mãi (không bắt buộc)',

@@ -12,6 +12,20 @@ import { OrderStatus } from './dto/update-order-status.dto';
 @Injectable()
 export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
+  private readonly sizeExtras: Record<string, number> = {
+  S: 0,
+  M: 5000,
+  L: 10000,
+};
+
+private readonly toppingPrices: Record<
+  string,
+  { name: string; price: number }
+> = {
+  pearl: { name: 'Trân châu', price: 7000 },
+  espresso: { name: 'Extra shot', price: 10000 },
+  cream: { name: 'Kem cheese', price: 10000 },
+};
 
   private readonly allowedTransitions: Record<
     OrderStatus,
@@ -70,29 +84,77 @@ export class OrdersService {
         }
 
         let subtotal = 0;
-        const orderItems = dto.items.map((item) => {
-          const product = productMap.get(item.productId);
-          if (!product) {
-            throw new NotFoundException('Sản phẩm không tồn tại');
-          }
 
-          const totalRequiredQty = productQtyMap.get(item.productId) || 0;
-          if (product.stock < totalRequiredQty) {
-            throw new BadRequestException(
-              `Sản phẩm "${product.name}" không đủ tồn kho`,
-            );
-          }
+const orderItems = dto.items.map((item) => {
+  const product = productMap.get(item.productId);
 
-          const lineTotal = Number(product.price) * item.qty;
-          subtotal += lineTotal;
+  if (!product) {
+    throw new NotFoundException('Sản phẩm không tồn tại');
+  }
 
-          return {
-            productId: product.id,
-            qty: item.qty,
-            size: item.size || null,
-            lineTotal,
-          };
-        });
+  if (!Number.isInteger(item.qty) || item.qty < 1) {
+    throw new BadRequestException('Số lượng sản phẩm không hợp lệ');
+  }
+
+  const totalRequiredQty = productQtyMap.get(item.productId) || 0;
+
+  if (product.stock < totalRequiredQty) {
+    throw new BadRequestException(
+      `Sản phẩm "${product.name}" không đủ tồn kho`,
+    );
+  }
+
+  const size = item.size || 'S';
+  const sizeExtra = this.sizeExtras[size];
+
+  if (sizeExtra === undefined) {
+    throw new BadRequestException('Kích cỡ không hợp lệ');
+  }
+
+  const selectedToppings = item.toppings ?? [];
+  const seenToppingIds = new Set<string>();
+
+  const toppings = selectedToppings.map((topping) => {
+    if (seenToppingIds.has(topping.id)) {
+      throw new BadRequestException('Topping bị trùng lặp');
+    }
+
+    seenToppingIds.add(topping.id);
+
+    const validTopping = this.toppingPrices[topping.id];
+
+    if (!validTopping) {
+      throw new BadRequestException(
+        `Topping "${topping.id}" không hợp lệ`,
+      );
+    }
+
+    return {
+      id: topping.id,
+      name: validTopping.name,
+      price: validTopping.price,
+    };
+  });
+
+  const toppingTotal = toppings.reduce(
+    (sum, topping) => sum + topping.price,
+    0,
+  );
+
+  const unitPrice = Number(product.price) + sizeExtra + toppingTotal;
+  const lineTotal = unitPrice * item.qty;
+
+  subtotal += lineTotal;
+
+  return {
+    productId: product.id,
+    qty: item.qty,
+    size,
+    sizeExtra,
+    toppings,
+    lineTotal,
+  };
+});
 
         // TASK 10.4: Kiểm tra và áp dụng mã khuyến mãi
         let promotionId: number | null = null;

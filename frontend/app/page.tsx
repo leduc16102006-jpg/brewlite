@@ -1,15 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
-type Product = {
-  id: number;
-  name: string;
-  price: number;
-  imageUrl: string;
-};
-
-const API_URL = "http://localhost:3000/products";
+import useCart from "@/hooks/useCart";
+import { useRouter } from "next/navigation";
+import { getProducts, type Product } from "@/lib/api";
 
 const sizes = [
   { label: "S", extra: 0 },
@@ -44,6 +38,8 @@ function formatPrice(price: number) {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const { addItem } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -60,33 +56,22 @@ export default function Home() {
       .reduce((total, topping) => total + topping.price, 0)
   : 0;
 
-  async function fetchProducts() {
+  
+async function fetchProducts() {
   setLoading(true);
   setError("");
 
   try {
-    const response = await fetch(API_URL);
-
-    if (!response.ok) {
-      throw new Error("Không thể tải sản phẩm");
-    }
-
-    const data: Product[] = await response.json();
+    const data = await getProducts();
     setProducts(data);
-  } catch {
-    // Dữ liệu tạm thời
-    setProducts([
-      { id: 1, name: "Americano", price: 39000, imageUrl: "/images/americano.jpg" },
-      { id: 2, name: "Latte", price: 55000, imageUrl: "/images/latte.jpg" },
-      { id: 3, name: "Cappuccino", price: 55000, imageUrl: "/images/cappuccino.jpg" },
-      { id: 4, name: "Bạc Xỉu", price: 45000, imageUrl: "/images/bac-xiu.jpg" },
-      { id: 5, name: "Black coffee", price: 35000, imageUrl: "/images/black-coffee.jpg" },
-      { id: 6, name: "Macchiato", price: 55000, imageUrl: "/images/macchiato.jpg" },
-      { id: 7, name: "Espresso", price: 39000, imageUrl: "/images/espresso.jpg" },
-      { id: 8, name: "Milk coffee", price: 45000, imageUrl: "/images/milk-coffee.jpg" },
-      { id: 9, name: "Mocha", price: 55000, imageUrl: "/images/mocha.jpg" },
-      { id: 10, name: "Salty coffee", price: 45000, imageUrl: "/images/salty-coffee.jpg" },
-    ]);
+  } catch (err) {
+    setProducts([]);
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Không thể kết nối đến máy chủ. Vui lòng thử lại."
+    );
   } finally {
     setLoading(false);
   }
@@ -248,7 +233,7 @@ export default function Home() {
               >
                 <div className="relative h-56 overflow-hidden bg-[#f0e7dc]">
                   <img
-                    src={product.imageUrl}
+                    src={product.imageUrl || "/images/coffee.jpg"}
                     alt={product.name}
                     className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                   />
@@ -334,7 +319,7 @@ export default function Home() {
 
           <div className="h-40 overflow-hidden rounded-2xl bg-[#e9ddce]">
             <img
-              src={selectedProduct.imageUrl}
+              src={selectedProduct.imageUrl || "/images/coffee.jpg"}
               alt={selectedProduct.name}
               className="h-full w-full object-cover"
             />
@@ -421,23 +406,37 @@ export default function Home() {
           </div>
 
           <button
-            onClick={() => {
-              alert(
-                `${selectedProduct.name} · Size ${selectedSize}\n` +
-                  `Topping: ${
-                    toppings
-                      .filter((topping) =>
-                        selectedToppings.includes(topping.id)
-                      )
-                      .map((topping) => topping.name)
-                      .join(", ") || "Không có"
-                  }\nTổng tiền: ${formatPrice(totalPrice)}`
-              );
-            }}
-            className="mt-5 w-full rounded-full bg-[#35251f] py-3.5 font-bold text-white transition hover:bg-[#634536]"
-          >
-            Xác nhận lựa chọn
-          </button>
+  onClick={() => {
+    
+    if (!selectedProduct) return;
+
+    const selectedToppingItems = toppings
+      .filter((topping) => selectedToppings.includes(topping.id))
+      .map((topping) => ({
+        id: topping.id,
+        name: topping.name,
+        price: topping.price,
+      }));
+
+    addItem({
+      productId: selectedProduct.id,
+      name: selectedProduct.name,
+      imageUrl: selectedProduct.imageUrl || "/images/coffee.jpg",
+      size: selectedSize,
+      basePrice: selectedProduct.price,
+      toppings: selectedToppingItems,
+      unitPrice: totalPrice,
+    });
+
+    setSelectedProduct(null);
+    setSelectedSize("M");
+    setSelectedToppings([]);
+    router.push("/cart");
+  }}
+  className="mt-5 w-full rounded-full bg-[#35251f] py-3.5 font-bold text-white transition hover:bg-[#634536]"
+>
+  Xác nhận lựa chọn
+</button>
         </section>
       </div>
     )}
