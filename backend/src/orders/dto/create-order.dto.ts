@@ -1,4 +1,3 @@
-
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMinSize,
@@ -9,7 +8,6 @@ import {
   MaxLength,
   Min,
   ValidateNested,
-  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -29,6 +27,17 @@ export class CreateOrderItemDto {
   @IsString()
   @MaxLength(50)
   size?: string;
+
+  // BỔ SUNG ĐỂ SWAGGER VÀ BACKEND CHẤP NHẬN TOPPING
+  @ApiPropertyOptional({
+    example: ['Trân châu', 'Kem cheese'],
+    type: [String],
+    description: 'Danh sách topping kèm theo',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  toppings?: string[];
 }
 
 export class CreateOrderDto {
@@ -38,6 +47,7 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
+
   @ApiPropertyOptional({
     example: 'WELCOME10',
     description: 'Mã khuyến mãi (không bắt buộc)',

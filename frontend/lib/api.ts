@@ -1,13 +1,13 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
-function getAuthHeader() {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("accessToken") || localStorage.getItem("token")
-      : null;
+// Định nghĩa kiểu trả về rõ ràng là Record<string, string> để TypeScript không báo lỗi HeadersInit
+function getAuthHeader(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+// Task 2 & 3: Tải danh mục sản phẩm từ Backend
 export async function getProducts() {
   try {
     const res = await fetch(`${API_URL}/products`);
@@ -25,23 +25,24 @@ export async function createOrder(
   promotionCode?: string
 ) {
   const payload: { items: typeof items; promotionCode?: string } = { items };
-  
+
   if (promotionCode && promotionCode.trim()) {
     payload.promotionCode = promotionCode.trim().toUpperCase();
   }
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...getAuthHeader(),
+  };
+
   const res = await fetch(`${API_URL}/orders`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeader(),
-    },
+    headers,
     body: JSON.stringify(payload),
   });
 
   const data = await res.json();
   if (!res.ok) {
-    // Trả trực tiếp thông báo từ Backend (ví dụ: "Đơn hàng tối thiểu 100.000đ để áp dụng WELCOME10")
     throw new Error(data.message || "Tạo đơn hàng thất bại.");
   }
   return data;
@@ -54,13 +55,15 @@ export async function processPayment(orderId: number, method: "WALLET" | "CARD")
       ? crypto.randomUUID()
       : `idem-${orderId}-${Date.now()}`;
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Idempotency-Key": idempotencyKey,
+    ...getAuthHeader(),
+  };
+
   const res = await fetch(`${API_URL}/payments`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": idempotencyKey,
-      ...getAuthHeader(),
-    },
+    headers,
     body: JSON.stringify({
       orderId,
       method,

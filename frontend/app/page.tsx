@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { getProducts } from "@/lib/api";
 
-// Danh mục chuẩn đầy đủ 10 món theo Seed của Backend Task 2
 const defaultProducts = [
   { id: 1, name: "Americano", price: 39000, category: "Cà phê đen", image: "/images/americano.jpg" },
   { id: 2, name: "Latte", price: 55000, category: "Cà phê sữa", image: "/images/latte.jpg" },
@@ -33,14 +32,15 @@ export default function HomePage() {
   const [selectedToppings, setSelectedToppings] = useState<string[]>([]);
   const [toastMsg, setToastMsg] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Bộ lọc danh mục & Từ khóa tìm kiếm (Task 3)
   const [activeCategory, setActiveCategory] = useState("Tất cả");
+  const [searchKeyword, setSearchKeyword] = useState("");
 
   useEffect(() => {
-    // 1. Kiểm tra trạng thái đăng nhập
     const token = localStorage.getItem("accessToken");
     setIsLoggedIn(!!token);
 
-    // 2. Tải 10 món thật từ API Backend Task 2
     async function loadData() {
       const data = await getProducts();
       if (data && Array.isArray(data) && data.length > 0) {
@@ -92,14 +92,20 @@ export default function HomePage() {
   };
 
   const categories = ["Tất cả", "Cà phê đen", "Cà phê sữa", "Khác"];
-  const filteredProducts =
-    activeCategory === "Tất cả"
-      ? products
-      : products.filter((p) => p.category === activeCategory);
+
+  // Xử lý tìm kiếm và lọc danh mục thời gian thực
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const matchesCategory =
+        activeCategory === "Tất cả" || (p.category && p.category === activeCategory);
+      const matchesSearch =
+        p.name.toLowerCase().includes(searchKeyword.trim().toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [products, activeCategory, searchKeyword]);
 
   return (
     <main className="min-h-screen bg-[#faf7f2] text-[#35251f]">
-      {/* Toast thông báo */}
       {toastMsg && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl bg-[#35251f] px-5 py-4 text-white shadow-2xl transition animate-bounce">
           <span>☕ {toastMsg}</span>
@@ -156,13 +162,37 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Menu Header & Filter Category */}
+      {/* Khu vực Menu & Tìm kiếm (Task 3) */}
       <div className="mx-auto max-w-6xl px-5 py-10">
         <div className="text-center">
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#a16b4b]">FIND YOUR FAVORITE</p>
           <h1 className="mt-2 text-4xl font-black" style={{ fontFamily: "Georgia, serif" }}>MENU</h1>
           <p className="mt-1 text-sm text-[#8b796b]">Những lựa chọn dành riêng cho bạn mỗi ngày ({products.length} món)</p>
 
+          {/* Thanh tìm kiếm (Search bar) */}
+          <div className="mx-auto mt-6 max-w-md">
+            <div className="relative flex items-center">
+              <span className="absolute left-4 text-stone-400">🔍</span>
+              <input
+                type="text"
+                placeholder="Tìm Americano, Latte, Mocha..."
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                className="w-full rounded-full border border-[#e5d8ca] bg-white py-3 pl-11 pr-4 text-sm outline-none transition focus:border-[#a16b4b] focus:shadow-sm"
+              />
+              {searchKeyword && (
+                <button
+                  type="button"
+                  onClick={() => setSearchKeyword("")}
+                  className="absolute right-4 text-xs font-bold text-stone-400 hover:text-stone-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Phân loại Category Tabs */}
           <div className="mt-6 flex justify-center gap-2">
             {categories.map((cat) => (
               <button
@@ -181,39 +211,47 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Lưới sản phẩm (Hiển thị đầy đủ 10 món) */}
-        <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
-          {filteredProducts.map((p) => (
-            <div key={p.id} className="rounded-3xl border border-[#eee3d7] bg-white p-5 shadow-sm transition hover:shadow-lg">
-              <div className="h-44 w-full overflow-hidden rounded-2xl bg-[#f3e8db]">
-                <img
-                  src={p.imageUrl || p.image || "/images/latte.jpg"}
-                  alt={p.name}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-lg">{p.name}</h3>
-                  <p className="text-xs text-[#8b796b]">{p.category || "Cà phê"}</p>
+        {/* Lưới sản phẩm */}
+        {filteredProducts.length === 0 ? (
+          <div className="mt-12 rounded-3xl border border-dashed border-[#ddcbbb] bg-white p-12 text-center">
+            <p className="text-3xl">🔍</p>
+            <h3 className="mt-3 font-bold text-stone-700">Không tìm thấy món phù hợp</h3>
+            <p className="mt-1 text-xs text-[#8b796b]">Hãy thử tìm kiếm với từ khóa khác hoặc chuyển danh mục.</p>
+          </div>
+        ) : (
+          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
+            {filteredProducts.map((p) => (
+              <div key={p.id} className="rounded-3xl border border-[#eee3d7] bg-white p-5 shadow-sm transition hover:shadow-lg">
+                <div className="h-44 w-full overflow-hidden rounded-2xl bg-[#f3e8db]">
+                  <img
+                    src={p.imageUrl || p.image || "/images/latte.jpg"}
+                    alt={p.name}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
-                <p className="font-black text-[#a16b4b]">
-                  {new Intl.NumberFormat("vi-VN").format(p.price)}đ
-                </p>
+                <div className="mt-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-lg">{p.name}</h3>
+                    <p className="text-xs text-[#8b796b]">{p.category || "Cà phê"}</p>
+                  </div>
+                  <p className="font-black text-[#a16b4b]">
+                    {new Intl.NumberFormat("vi-VN").format(p.price)}đ
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedProduct(p)}
+                  className="mt-4 w-full rounded-xl bg-[#35251f] py-2.5 text-xs font-bold text-white transition hover:bg-[#634536]"
+                >
+                  Chọn món & Tùy chỉnh +
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedProduct(p)}
-                className="mt-4 w-full rounded-xl bg-[#35251f] py-2.5 text-xs font-bold text-white transition hover:bg-[#634536]"
-              >
-                Chọn món & Tùy chỉnh +
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Modal tùy chỉnh */}
+      {/* Modal Tùy chỉnh món */}
       {selectedProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">

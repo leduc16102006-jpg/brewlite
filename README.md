@@ -38,22 +38,23 @@ Tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api
 | | Backend (`GET`) | `/products/:id` | Public | Lấy thông tin chi tiết của một sản phẩm theo ID. | Bạn C |
 | **Task 3: Giao diện Menu** | Frontend (Next.js) | `/` (Trang chủ) | Public | Hiển thị menu đồ uống dạng lưới (Grid), tích hợp thanh tìm kiếm, bộ lọc danh mục theo tab. | Bạn D |
 | **Task 4: Chi tiết & Tùy chọn** | Frontend (Next.js) | Modal Chi tiết | Public | Modal tùy chỉnh món: chọn Size (S/M/L), chọn Topping, tính tiền thời gian thực. | Bạn D |
-| **Task 5: Giỏ hàng (Cart)** | Frontend (Next.js) | `/cart`, `CartContext` | Client State | Quản lý giỏ hàng toàn cục qua Context API, lưu `localStorage`, Badge tự nhảy số lượng, thêm/sửa/xóa món và tính tổng tiền tự động. | Bạn A & Bạn B (SM) |
-| **Task 6: Đơn hàng** | Backend (`POST`) | `/orders` | Bearer JWT | Tạo đơn hàng mới (`PENDING`), validate DTO qua `class-validator`, trừ tồn kho trong Transaction, hỗ trợ `promotionCode`. | Bạn E |
+| **Task 5: Giỏ hàng (Cart)** | Frontend (Next.js) | `/cart`, `CartContext` | Client State | Quản lý giỏ hàng toàn cục qua Context API, lưu `localStorage`, Badge tự nhảy số lượng, thêm/sửa/xóa món và tính tổng tiền tự động. |  Bạn B (SM) |
+| **Task 6: Đơn hàng** | Backend (`POST`) | `/orders` | Bearer JWT | Tạo đơn hàng mới (`PENDING`), validate DTO qua `class-validator`, trừ tồn kho trong Transaction, hỗ trợ `promotionCode`. | Bạn C |
 | **Task 7: Xác thực (Auth)** | Backend (`POST`) | `/auth/register` | Public | Đăng ký tài khoản mới (Mật khẩu được băm Bcrypt). | Bạn E |
 | | Backend (`POST`) | `/auth/login` | Public | Đăng nhập hệ thống, cấp `accessToken` (JWT). | Bạn E |
 | | Backend (`GET`) | `/auth/me` | Bearer JWT | Trích xuất thông tin người dùng từ token (`JwtAuthGuard`). | Bạn E |
-| | Frontend (Next.js) | `/login` | Public | Giao diện đăng nhập, nút con mắt ẩn/hiện mật khẩu, tự động lưu token và điều hướng. | Bạn B (SM) |
-| **Task 8: Thanh toán không tiền mặt** | Backend (`POST`) | `/payments` | Bearer JWT + Idempotency | Thanh toán qua Ví (`WALLET`) hoặc Thẻ (`CARD`). Cập nhật đơn sang `PAID` hoặc `PAYMENT_FAILED`, ghi lịch sử vào bảng `Payment`. | Bạn E & Bạn C |
-| | Frontend (Next.js) | `/cart` (Mục Thanh toán) | Bearer JWT | Chọn phương thức `WALLET`/`CARD`, gửi kèm Header `Idempotency-Key`, công cụ mô phỏng lỗi và nút "Thử lại thanh toán". | Bạn A & Bạn B (SM) |
+| | Frontend (Next.js) | `/login` | Public | Giao diện đăng nhập, nút con mắt ẩn/hiện mật khẩu, tự độnug lưu token và điều hướng. | Bạn B |
+| **Task 8: Thanh toán không tiền mặt** | Backend (`POST`) | `/payments` | Bearer JWT + Idempotency | Thanh toán qua Ví (`WALLET`) hoặc Thẻ (`CARD`). Cập nhật đơn sang `PAID` hoặc `PAYMENT_FAILED`, ghi lịch sử vào bảng `Payment`. | Bạn E |
+| | Frontend (Next.js) | `/cart` (Mục Thanh toán) | Bearer JWT | Chọn phương thức `WALLET`/`CARD`, gửi kèm Header `Idempotency-Key`, công cụ mô phỏng lỗi và nút "Thử lại thanh toán". |  Bạn B (SM) |
 | **Task 9: Lịch sử & Xác nhận đơn** | Frontend (Next.js) | `/order-confirmation` | Public/JWT | Màn hình biên nhận tức thì: mã đơn, nhãn xanh `PAID`, tổng tiền và lời nhắc nhận món tại quầy. | Bạn B (SM) |
 | | Backend (`GET`) | `/orders/me` | Bearer JWT | Lấy danh sách lịch sử đơn hàng của tài khoản đang đăng nhập, sắp xếp mới nhất. | Bạn E |
-| | Frontend (Next.js) | `/orders` | Bearer JWT | Giao diện lịch sử đơn hàng kết nối API thật, lọc theo trạng thái, nút Đăng xuất xóa token. | Bạn B (SM) |
-| | DevOps / System | `docker-compose.yml` | --- | Đóng gói toàn bộ hệ thống (PostgreSQL, Backend NestJS, Frontend Next.js). | Bạn B (SM) |
+| | Frontend (Next.js) | `/orders` | Bearer JWT | Giao diện lịch sử đơn hàng kết nối API thật, lọc theo trạng thái, nút Đăng xuất xóa token. | D & B|
+| | DevOps / System | `docker-compose.yml` | --- | Đóng gói toàn bộ hệ thống (PostgreSQL, Backend NestJS, Frontend Next.js). | Bạn B  |
 | **Task 10.1: Máy trạng thái** | Backend (`PATCH`) | `/orders/:id/status` | Bearer JWT | Chuyển đổi trạng thái đơn hàng (`PENDING -> PAID -> PREPARING -> READY -> COMPLETED`). Chặn chuyển sai, tự hoàn kho khi hủy đơn. | Bạn C |
 | **Task 10.2: Thanh toán Idempotent** | Backend (`POST`) | `/payments` | Bearer JWT + Header `idempotency-key` | Chống trừ tiền trùng lặp khi bấm nhiều lần. Kiểm tra khóa duy nhất trên PostgreSQL. | Bạn C |
 | **Task 10.3: Khóa tồn kho** | Backend (`POST`) | `/orders` | Bearer JWT | Kiểm soát đồng thời bằng Database Transaction và khóa tồn kho (Optimistic Lock). | Bạn E |
-| **Task 10.4: Khuyến mãi & Loyalty** | Backend (`POST`) | `/orders`, `/payments` | Bearer JWT | Thẩm định mã giảm giá động trong PostgreSQL (`PERCENT`/`FIXED`), tính điểm Loyalty (`+1 điểm / 10.000đ`). | Bạn C & Bạn B (SM) |
+| **Task 10.4: Khuyến mãi & Loyalty** | Backend (`POST`) | `/orders`, `/payments` | Bearer JWT | Thẩm định mã giảm giá động trong PostgreSQL (`PERCENT`/`FIXED`), tính điểm Loyalty (`+1 điểm / 10.000đ`). | Bạn C |
+
 ### Task 7: Xác thực Người dùng (Auth JWT, Bcrypt & Giao diện Login)
 - **Người phụ trách:** Thành viên E (Backend Auth API) & Thành viên B (Frontend Login Flow & Integration)
 - **Tiêu chí nghiệm thu:**
@@ -68,7 +69,7 @@ Tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api
 ---
 
 ### Task 5: Quản lý Giỏ hàng (Cart State & UI)
-- **Người phụ trách:** Thành viên A (Dựng UI Giỏ hàng) & Thành viên B / SM (Thiết kế `CartContext`, lưu `localStorage`, Badge số lượng & Tích hợp)
+- **Người phụ trách:**Thành viên B / SM (Thiết kế `CartContext`, lưu `localStorage`, Badge số lượng & Tích hợp)
 - **Tiêu chí nghiệm thu (DoD):**
   1. **Quản lý trạng thái toàn cục:** Triển khai `CartContext` bọc toàn ứng dụng, lưu trữ trong `localStorage` giúp dữ liệu giỏ hàng không bị mất khi F5 tải lại trang.
   2. **Thao tác giỏ hàng:** Cho phép tăng/giảm số lượng món, xóa từng món riêng lẻ hoặc "Xóa tất cả" dọn sạch giỏ hàng.
@@ -84,8 +85,8 @@ Tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api
 
 ---
 
-### Task 8: Thanh toán Không tiền mặt & Xử lý Giao dịch
-- **Người phụ trách:** Thành viên E & C (Backend Payment API, Idempotency) & Thành viên A & B / SM (Frontend Payment Flow & Exception Handling)
+### Task 8 , 10.2 : Thanh toán Không tiền mặt & Xử lý Giao dịch
+- **Người phụ trách:** Thành viên E &  B (Frontend Payment Flow & Exception Handling) & C 
 - **Tiêu chí nghiệm thu (DoD):**
   1. **Lựa chọn phương thức:** Hỗ trợ lựa chọn giữa 2 phương thức chuẩn: Ví điện tử BrewPay (`WALLET`) và Thẻ Ngân hàng / ATM (`CARD`).
   2. **Tích hợp API thanh toán:** Frontend gọi API `POST /payments` gửi kèm JWT Bearer Token và Header `Idempotency-Key` (Task 10.2) duy nhất cho mỗi giao dịch để chống trừ tiền trùng lặp.
@@ -120,14 +121,14 @@ Tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api
 ### KỊCH BẢN A: Dành cho Giảng viên nghiệm thu / Demo sản phẩm (Docker 1 chạm)
 Không cần cài đặt Node.js hay mở nhiều terminal, chỉ cần bật Docker Desktop và chạy lệnh:
 ```bash
-docker compose up --build -d
+docker compose up -d --build backend
 Sau khi terminal báo [+] up 3/3, mở trình duyệt truy cập:
 
 Giao diện Người dùng (Frontend Next.js): http://localhost:3001
 
 Tài liệu API (Swagger UI NestJS): http://localhost:3000/api/docs
 
-Lưu ý khi tạo database lần đầu: Nạp nhanh 10 món cà phê mẫu bằng lệnh:
+Lưu ý kbhi tạo dataase lần đầu: Nạp nhanh 10 món cà phê mẫu bằng lệnh:
 - docker exec -it brewlite_backend npx prisma db seed
 Tắt hệ thống sau khi demo: docker compose down
 
@@ -237,7 +238,6 @@ Cách chạy & kiểm tra
 Tại trang chủ http://localhost:3001, bấm vào nút "+ Thêm món" tại sản phẩm "Cà phê Sữa đá".
 Chọn Size L → Giá tiền hiển thị tự động cộng thêm 10.000đ.
 Tích chọn thêm Topping "Kem cheese" → Giá tiền cộng thêm 10.000đ.
-Tăng số lượng lên 2 → Tổng tiền tạm tính tự động nhân đôi chính xác trước khi bấm thêm vào giỏ.
 
 
 Task 5: Quản lý Trạng thái Giỏ hàng (Cart Store)
@@ -261,9 +261,14 @@ Cách chạy & kiểm tra trên SwaggerGọi POST /orders với payload mẫu:
 
 {
   "items": [
-    { "productId": 1, "qty": 1, "size": "M" },
-    { "productId": 1, "qty": 1, "size": "L" }
-  ]
+    {
+      "productId": 2,
+      "qty": 1,
+      "size": "M",
+      "toppings": ["Trân châu", "Kem cheese"]
+    }
+  ],
+  "promotionCode": "WELCOME5"
 }
 
 Kết quả mong đợi:
@@ -276,25 +281,29 @@ Tiêu chí nghiệm thu
 Đăng ký băm mật khẩu bằng Bcrypt
 Đăng nhập cấp JWT Token
 Bảo vệ endpoint bằng JwtAuthGuard
-Cách chạy & kiểm tra1. Gọi POST /auth/register:
+Cách chạy & kiểm tra
+1. Gọi POST /auth/register:
 {
   "email": "testuser@gmail.com",
   "fullName": "Nguyen Van A",
   "password": "Password123@"
 }
 
-→ Trả về mã 201 Created. Trong CSDL mật khẩu được băm (hash), không lưu văn bản thuần.2. Gọi POST /auth/login với tài khoản trên
+→ Trả về mã 201 Created. Trong CSDL mật khẩu được băm (hash), không lưu văn bản thuần.
+2. Gọi POST /auth/login với tài khoản trên
 
-→ Trả về chuỗi accessToken (JWT).3. Gọi GET /auth/me khi chưa dán Token
+→ Trả về chuỗi accessToken (JWT).
+3. Gọi GET /auth/me khi chưa dán Token
 
-→ Bị chặn với mã lỗi 401 Unauthorized.4. Gắn Token vào nút Authorize rồi gọi lại GET /auth/me
+→ Bị chặn với mã lỗi 401 Unauthorized.
+4. Gắn Token vào nút Authorize rồi gọi lại GET /auth/me
 
 → Trả về thông tin cá nhân thành công.
 
 
 Task 8: Thanh toán Giả lập & Lưu Lịch sử Giao dịch
 ***Người phụ trách:*** Thành viên E (Backend) & Thành viên B (UI)
-Tiêu chí nghiệm thuTiếp nhận phương thức WALLET hoặc CARD, chuyển trạng thái đơn sang PAID, lưu bản ghi thanh toán vào bảng Payment.
+Tiêu chí nghiệm thu Tiếp nhận phương thức WALLET hoặc CARD, chuyển trạng thái đơn sang PAID, lưu bản ghi thanh toán vào bảng Payment.
 Cách chạy & kiểm tra
 Lấy mã orderId của một đơn hàng đang PENDING.
 Gọi POST /payments:
@@ -335,7 +344,8 @@ Task 10.1: Máy trạng thái Đơn hàng (Order State Machine)
 Tiêu chí nghiệm thu (Tiêu chí chấm a)
 Chặn đổi trạng thái sai; tự động hoàn kho khi đơn bị hủy hoặc lỗi thanh toán.
 
-1. Cách chạy & kiểm tra1. Chạy Unit Test tự động (14 bài test):
+1. Cách chạy & kiểm tra
+1. Chạy Unit Test tự động (14 bài test):
 
 npm test -- orders.service.spec.ts
 
@@ -347,7 +357,8 @@ Chuyển PENDING → CANCELLED → Kiểm tra CSDL thấy số lượng tồn kh
 Task 10.2: Thanh toán Idempotent (Chống trừ tiền trùng lặp)
 ***Người phụ trách: Thành viên C***
 Tiêu chí nghiệm thu (Tiêu chí chấm b)
-Sử dụng Header idempotency-key. Gửi 2 lần cùng key chỉ thực hiện 1 lần giao dịch, không trừ tiền 2 lần.Cách chạy & kiểm tra1. Chạy Unit Test tự động (11 bài test):
+Sử dụng Header idempotency-key. Gửi 2 lần cùng key chỉ thực hiện 1 lần giao dịch, không trừ tiền 2 lần.Cách chạy & kiểm tra
+1. Chạy Unit Test tự động (11 bài test):
 
 npm test -- payments.service.spec.ts
 → Kết quả: 11 passed, 11 total.
@@ -381,7 +392,7 @@ Tiêu chí nghiệm thu
 
 Cách chạy & kiểm tra
 Tạo mã giảm giá mẫu trong bảng Promotion trên Prisma Studio
-(Code: BREW10, loại PERCENT, giá trị 10%, đơn tối thiểu 30000).
+(Code: WELCOME, loại PERCENT, giá trị 10%, đơn tối thiểu 20000).
 Gọi POST /orders có kèm "promotionCode": "BREW10"
 → Trả về mã 201 Created, tổng tiền total được chiết khấu đúng 10%.
 Gọi POST /payments thanh toán cho đơn hàng trên
