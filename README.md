@@ -49,7 +49,29 @@ Tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api
 | **Task 10.2: Thanh toán Idempotent** | Backend (`POST`) | `/payments` | Bearer JWT + Header `idempotency-key` | Chống trừ tiền và nhân đôi đơn hàng khi khách bấm thanh toán nhiều lần. Dùng trạng thái `PROCESSING` và kiểm tra khóa duy nhất trên PostgreSQL. Trả về kết quả cũ nếu gửi lại cùng key. Unit test: 11/11 PASS. | Bạn C |
 | **Task 10.3: Khóa lạc quan tồn kho** | Backend (`POST`) | `/orders` | Bearer JWT | Kiểm soát đồng thời bằng Database Transaction và trường `version` (Optimistic Locking). Đảm bảo nhiều khách đặt cùng lúc khi chỉ còn 1 ly thì chỉ 1 đơn thành công, tồn kho không bao giờ bị âm. Concurrency test: PASS. | Bạn E |
 | **Task 10.4: Khuyến mãi & Loyalty** | Backend (`POST`) | `/orders`, `/payments` | Bearer JWT | Áp dụng mã giảm giá hợp lệ (`PERCENT` hoặc `FIXED`), kiểm tra thời hạn và điều kiện đơn tối thiểu. Tự động cộng điểm thưởng vào bảng `LoyaltyTransaction` khi đơn hàng chuyển sang `PAID`. | Bạn C |
+### Task 7: Xác thực Người dùng (Auth JWT, Bcrypt & Giao diện Login)
+- **Người phụ trách:** Thành viên E (Backend Auth API) & Thành viên B (Frontend Login Flow & Integration)
+- **Tiêu chí nghiệm thu:**
+  1. API `POST /auth/register`: Mật khẩu được băm an toàn qua Bcrypt, lưu trữ trong PostgreSQL.
+  2. API `POST /auth/login`: Xác thực thông tin đăng nhập và cấp chuỗi `accessToken` (JWT).
+  3. Giao diện `/login`: Form đăng nhập hoàn chỉnh, tích hợp nút con mắt ẩn/hiện mật khẩu, tự động lưu `accessToken` vào `localStorage` và chuyển hướng người dùng an toàn.
+- **Cách chạy & kiểm tra:**
+  - Truy cập `http://localhost:3001/login`, nhập email `user@example.com` và mật khẩu `Password123`.
+  - Bấm vào biểu tượng con mắt để kiểm tra tính năng hiển thị mật khẩu.
+  - Bấm "Đăng nhập ngay": Hệ thống gửi yêu cầu xác thực sang Backend, lưu token và điều hướng sang `/orders`.
 
+---
+
+### Task 9: Lịch sử Đơn hàng, Xác nhận Đơn & Đóng gói Docker
+- **Người phụ trách:** Thành viên D (Giao diện Lịch sử đơn `page.tsx`)
+- **Tiêu chí nghiệm thu:**
+  1. API `GET /orders/me`: Trả về danh sách đơn của tài khoản đang đăng nhập, chặn truy cập trái phép (`401 Unauthorized`).
+  2. Giao diện `/orders`: Kết nối dữ liệu thật End-to-End với Backend, hiển thị mã đơn, tên món, tổng tiền, nhãn trạng thái (`PAID`, `PENDING`), bộ lọc trạng thái và tính năng Đăng xuất xóa token.
+  3. Màn hình `/success`: Xác nhận trạng thái đơn hàng sau khi thanh toán.
+- **Cách chạy & kiểm tra:**
+  - Truy cập `http://localhost:3001/orders` khi chưa đăng nhập: Hiển thị cảnh báo yêu cầu đăng nhập.
+  - Sau khi đăng nhập: Hiển thị toàn bộ danh sách đơn hàng thực tế từ CSDL. Bấm các tab lọc ("Thành công", "Chờ xử lý") để xem đơn tương ứng.
+  - Bấm nút đỏ "Đăng xuất": Hệ thống dọn sạch token và bảo mật dữ liệu đơn.
 ---
 
 ## 4. Hướng dẫn Khởi chạy Hệ thống
