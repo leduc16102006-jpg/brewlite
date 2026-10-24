@@ -44,7 +44,7 @@ Tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api
 | | Backend (`POST`) | `/auth/login` | Public | Đăng nhập hệ thống, cấp `accessToken` (JWT). | Bạn E |
 | | Backend (`GET`) | `/auth/me` | Bearer JWT | Trích xuất thông tin người dùng từ token (`JwtAuthGuard`). | Bạn E |
 | | Frontend (Next.js) | `/login` | Public | Giao diện đăng nhập, nút con mắt ẩn/hiện mật khẩu, tự độnug lưu token và điều hướng. | Bạn B |
-| **Task 8: Thanh toán không tiền mặt** | Backend (`POST`) | `/payments` | Bearer JWT + Idempotency | Thanh toán qua Ví (`WALLET`) hoặc Thẻ (`CARD`). Cập nhật đơn sang `PAID` hoặc `PAYMENT_FAILED`, ghi lịch sử vào bảng `Payment`. | Bạn E |
+| **Task 8: Thanh toán không tiền mặt** | Backend (`POST`) | `/payments` | Bearer JWT + Idempotency | Thanh toán qua Ví (`WALLET`) hoặc Thẻ (`CARD`). Cập nhật đơn sang `PAID` hoặc `PAYMENT_FAILED`, ghi lịch sử vào bảng `Payment`. | Bạn A |
 | | Frontend (Next.js) | `/cart` (Mục Thanh toán) | Bearer JWT | Chọn phương thức `WALLET`/`CARD`, gửi kèm Header `Idempotency-Key`, công cụ mô phỏng lỗi và nút "Thử lại thanh toán". |  Bạn B (SM) |
 | **Task 9: Lịch sử & Xác nhận đơn** | Frontend (Next.js) | `/order-confirmation` | Public/JWT | Màn hình biên nhận tức thì: mã đơn, nhãn xanh `PAID`, tổng tiền và lời nhắc nhận món tại quầy. | Bạn B (SM) |
 | | Backend (`GET`) | `/orders/me` | Bearer JWT | Lấy danh sách lịch sử đơn hàng của tài khoản đang đăng nhập, sắp xếp mới nhất. | Bạn E |
