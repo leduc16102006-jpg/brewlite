@@ -121,7 +121,7 @@ Tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api
 ### KỊCH BẢN A: Dành cho Giảng viên nghiệm thu / Demo sản phẩm (Docker 1 chạm)
 Không cần cài đặt Node.js hay mở nhiều terminal, chỉ cần bật Docker Desktop và chạy lệnh:
 ```bash
-docker compose up -d --build backend
+docker compose up -d --build
 Sau khi terminal báo [+] up 3/3, mở trình duyệt truy cập:
 
 Giao diện Người dùng (Frontend Next.js): http://localhost:3001

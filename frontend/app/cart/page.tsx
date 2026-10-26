@@ -138,7 +138,7 @@ export default function CartAndCheckoutPage() {
         throw { type: "STOCK_ERROR", message: "⚠️ Lỗi tồn kho (Task 10.3): Sản phẩm hiện không đủ số lượng để khóa tồn kho." };
       }
 
-      // LUỒNG MỚI: Chỉ gọi API tạo đơn (POST /orders) nếu chưa có ID đơn hàng
+      // LUỒNG: Chỉ gọi API tạo đơn nếu chưa có ID đơn hàng
       let orderIdToPay = currentOrderId;
 
       if (!orderIdToPay) {
@@ -152,7 +152,7 @@ export default function CartAndCheckoutPage() {
         try {
           const newOrder = await createOrder(orderPayload, appliedPromo ? appliedPromo.code : undefined);
           orderIdToPay = newOrder.id;
-          setCurrentOrderId(newOrder.id); // Cache lại ID
+          setCurrentOrderId(newOrder.id);
         } catch (orderErr: any) {
           const msg = orderErr.message || "";
           if (msg.toLowerCase().includes("stock") || msg.toLowerCase().includes("kho")) {
@@ -162,9 +162,13 @@ export default function CartAndCheckoutPage() {
         }
       }
 
+      // THÊM ĐOẠN NÀY ĐỂ ÉP KIỂU STRICT CHO TYPESCRIPT
+      if (!orderIdToPay) {
+        throw { type: "GENERAL", message: "Không thể khởi tạo mã đơn hàng hợp lệ." };
+      }
+
       // Xử lý giả lập lỗi thanh toán (Task 8)
       if (simulatePaymentError) {
-        // Đồng bộ trực tiếp xuống Database để Prisma Studio hiển thị PAYMENT_FAILED thay vì PENDING
         try {
           await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/orders/${orderIdToPay}/status`, {
             method: "PATCH",
@@ -182,7 +186,8 @@ export default function CartAndCheckoutPage() {
       }
 
       // Gọi API thanh toán thật (Task 8 & 10.2)
-      await processPayment(orderIdToPay, paymentMethod);
+      // Thêm dấu ! (orderIdToPay!) để khẳng định chắc chắn 100% không phải null
+      await processPayment(orderIdToPay!, paymentMethod);
 
       // Thành công -> Chuyển hướng
       handleClearAll();

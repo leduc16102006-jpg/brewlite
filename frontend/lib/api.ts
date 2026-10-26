@@ -21,7 +21,7 @@ export async function getProducts() {
 
 // Task 6 & 10.4: Gửi promotionCode động lên Backend
 export async function createOrder(
-  items: { productId: number; qty: number; size?: string }[],
+  items: { productId: number; qty: number; size?: string; toppings?: string[] }[],
   promotionCode?: string
 ) {
   const payload: { items: typeof items; promotionCode?: string } = { items };
