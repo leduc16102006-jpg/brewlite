@@ -144,6 +144,9 @@ Tại thư mục gốc dự án:
 
 docker compose up -d postgres
 
+docker compose down
+để tắt 
+
 Bước 3: Khởi chạy Backend (Terminal 1)
 cd backend
 npm install
