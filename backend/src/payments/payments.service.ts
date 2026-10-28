@@ -7,6 +7,9 @@ import {
 } from '@nestjs/common';
 
 import { Prisma, Payment } from '@prisma/client';
+import {
+  releaseOrderIngredients,
+} from '../orders/ingredient-stock';
 import { PrismaService } from '../prisma/prisma.service';
 
 import {
@@ -96,14 +99,12 @@ export class PaymentsService {
       );
     }
 
-    if (
-      order.status !== 'PENDING' &&
-      order.status !== 'PAYMENT_FAILED'
-    ) {
-      throw new BadRequestException(
-        'Order cannot be paid in its current status',
-      );
-    }
+  if (order.status !== 'PENDING') {
+    throw new BadRequestException(
+      'Order must be PENDING before payment. ' +
+      'Reserve ingredients before retrying a failed payment.',
+    );
+  }
 
     // 3. Tạo bản ghi giữ chỗ trước khi gọi cổng thanh toán.
     // Unique idempotencyKey giúp ngăn hai request cùng key tạo
@@ -202,6 +203,34 @@ export class PaymentsService {
         where: { id: payment.id },
         data: { status },
       });
+
+  // TASK 10.3: Hoàn tồn kho nếu Gateway xác nhận thất bại
+  if (status === 'PAYMENT_FAILED') {
+    const handledByIngredients =
+      await releaseOrderIngredients(tx, order.id);
+
+    // Tương thích với đơn hàng cũ dùng Product.stock
+    if (!handledByIngredients) {
+      const oldOrderItems = await tx.orderItem.findMany({
+        where: { orderId: order.id },
+        select: {
+          productId: true,
+          qty: true,
+        },
+      });
+
+      for (const item of oldOrderItems) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: { increment: item.qty },
+            version: { increment: 1 },
+          },
+        });
+      }
+    }
+  }
+
       if (status === 'PAID') {
       const points = Math.floor(order.total / 10_000);
 

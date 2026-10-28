@@ -1,80 +1,211 @@
+import 'reflect-metadata';
 import dotenv from 'dotenv';
-dotenv.config({ quiet: true }); // Tắt thông báo injected env
+dotenv.config({ quiet: true });
 
-import { PrismaClient } from '@prisma/client';
-import { OrdersService } from '../src/orders/orders.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { OrdersService } from '../src/orders/orders.service';
 
-describe('Task 10.3 - Kiểm soát tồn kho khi đặt đồng thời (Optimistic Locking)', () => {
-  const prisma = new PrismaClient();
-  const prismaService = new PrismaService();
-  const ordersService = new OrdersService(prismaService);
+describe(
+  'Task 10.3 - Ingredient Inventory Concurrency',
+  () => {
+    const prisma = new PrismaService();
+    const ordersService = new OrdersService(prisma);
 
-  it('đặt đồng thời 5 luồng khi kho chỉ còn 1: chỉ 1 đơn thành công, tồn kho không bị âm', async () => {
-    // 1. Lấy user hợp lệ
-    let testUser = await prisma.user.findFirst();
-    if (!testUser) {
-      testUser = await prisma.user.create({
-        data: {
-          email: `concurrency_user_${Date.now()}@example.com`,
-          fullName: 'Concurrent Tester',
-          passwordHash: 'dummy_hash_for_test',
-        },
-      });
-    }
-
-    // 2. Tạo món test với stock = 1, version = 0
-    const lastProduct = await prisma.product.findFirst({ orderBy: { id: 'desc' } });
-    const safeProductId = (lastProduct?.id ?? 0) + 1000 + Math.floor(Math.random() * 500);
-
-    const testProduct = await prisma.product.create({
-      data: {
-        id: safeProductId,
-        name: `Cà phê Test Concurrency #${safeProductId}`,
-        price: 35000,
-        stock: 1, // KHO CHỈ CÒN 1 LY
-        version: 0,
-      },
+    afterAll(async () => {
+      await prisma.$disconnect();
     });
 
-    console.log(`\n================ KẾT QUẢ KIỂM THỬ CONCURRENCY ================`);
-    console.log(`[BAN ĐẦU] Sản phẩm: ${testProduct.name} | Tồn kho ban đầu: ${testProduct.stock} | Version: ${testProduct.version}`);
+    it(
+      '5 request cùng đặt hàng: chỉ 1 đơn thành công',
+      async () => {
+        const marker = `${Date.now()}_${process.pid}`;
 
-    // 3. Giả lập 5 khách hàng bấm Đặt hàng CÙNG MỘT LÚC
-    const orderPayload = { items: [{ productId: testProduct.id, qty: 1 }] };
-    const results = await Promise.allSettled([
-      ordersService.create(testUser.id, orderPayload),
-      ordersService.create(testUser.id, orderPayload),
-      ordersService.create(testUser.id, orderPayload),
-      ordersService.create(testUser.id, orderPayload),
-      ordersService.create(testUser.id, orderPayload),
-    ]);
+        let userId: number | null = null;
+        let productId: number | null = null;
+        let ingredientId: number | null = null;
 
-    const successful = results.filter((r) => r.status === 'fulfilled');
-    const failed = results.filter((r) => r.status === 'rejected');
+        try {
+          // 1. Tạo user riêng cho bài kiểm thử
+          const user = await prisma.user.create({
+            data: {
+              email: `task103_5requests_${marker}@example.invalid`,
+              fullName: 'Task 10.3 Concurrency Tester',
+              passwordHash: 'test_only',
+            },
+          });
 
-    const updatedProduct = await prisma.product.findUnique({ where: { id: testProduct.id } });
+          userId = user.id;
 
-    console.log(`[KẾT QUẢ] Số request gửi đồng thời: 5`);
-    console.log(`[KẾT QUẢ] Số đơn tạo THÀNH CÔNG: ${successful.length}`);
-    console.log(`[KẾT QUẢ] Số đơn bị TỪ CHỐI (Optimistic Lock chặn): ${failed.length}`);
-    console.log(`[CSDL] Tồn kho sau cùng: ${updatedProduct?.stock} (Tuyệt đối không bị âm)`);
-    console.log(`[CSDL] Version sau cùng: ${updatedProduct?.version} (Đã tăng từ 0 lên 1)`);
-    console.log(`===============================================================\n`);
+          // 2. Tạo sản phẩm, không dùng Product.stock
+          const product = await prisma.product.create({
+            data: {
+              name: `__TASK103_PRODUCT_${marker}`,
+              price: 35000,
+              stock: 0,
+              version: 0,
+            },
+          });
 
-    // Tiêu chí chấm điểm:
-    expect(successful.length).toBe(1);
-    expect(failed.length).toBe(4);
-    expect(updatedProduct?.stock).toBe(0);
-    expect(updatedProduct?.version).toBe(1);
+          productId = product.id;
 
-    // Dọn dẹp dữ liệu test
-    await prisma.orderItem.deleteMany({ where: { productId: testProduct.id } });
-    await prisma.product.delete({ where: { id: testProduct.id } });
-  });
+          // 3. Kho nguyên liệu chỉ có 100g
+          const ingredient = await prisma.ingredient.create({
+            data: {
+              name: `__TASK103_INGREDIENT_${marker}`,
+              unit: 'g',
+              stock: 100,
+              version: 0,
+            },
+          });
 
-  afterAll(async () => {
-    await prisma.$disconnect();
-    await prismaService.$disconnect();
-  });
-});
+          ingredientId = ingredient.id;
+
+          // 4. Một ly size M cần 20g
+          await prisma.recipeItem.create({
+            data: {
+              productId: product.id,
+              ingredientId: ingredient.id,
+              size: 'M',
+              quantity: 20,
+            },
+          });
+
+          console.log('=== TỒN KHO BAN ĐẦU ===');
+          console.log({
+            stock: ingredient.stock,
+            version: ingredient.version,
+          });
+
+          // 5. Mỗi request đặt 4 ly = 80g
+          const payload = {
+            items: [
+              {
+                productId: product.id,
+                qty: 4,
+                size: 'M',
+              },
+            ],
+          };
+
+          // Gửi 5 yêu cầu gần như đồng thời
+          const results = await Promise.allSettled(
+            Array.from({ length: 5 }, () =>
+              ordersService.create(user.id, payload),
+            ),
+          );
+
+          const successful = results.filter(
+            (result) => result.status === 'fulfilled',
+          );
+
+          const failed = results.filter(
+            (result) => result.status === 'rejected',
+          );
+
+          console.log('=== KẾT QUẢ 5 REQUEST ===');
+
+          results.forEach((result, index) => {
+            if (result.status === 'fulfilled') {
+              console.log(
+                `Request ${index + 1}: THÀNH CÔNG`,
+              );
+            } else {
+              const message =
+                result.reason instanceof Error
+                  ? result.reason.message
+                  : String(result.reason);
+
+              console.log(
+                `Request ${index + 1}: THẤT BẠI - ${message}`,
+              );
+            }
+          });
+
+          // 6. Đọc tồn kho và đơn hàng thật
+          const finalIngredient =
+            await prisma.ingredient.findUniqueOrThrow({
+              where: { id: ingredient.id },
+            });
+
+          const finalProduct =
+            await prisma.product.findUniqueOrThrow({
+              where: { id: product.id },
+            });
+
+          const orders = await prisma.order.findMany({
+            where: { userId: user.id },
+            include: {
+              items: true,
+              ingredientUses: true,
+            },
+          });
+
+          console.log('=== DỮ LIỆU POSTGRESQL ===');
+          console.log({
+            successfulRequests: successful.length,
+            failedRequests: failed.length,
+            ordersCreated: orders.length,
+            ingredientStock: finalIngredient.stock,
+            ingredientVersion: finalIngredient.version,
+            productStock: finalProduct.stock,
+          });
+
+          // 7. Kiểm tra kết quả
+          expect(successful.length).toBe(1);
+          expect(failed.length).toBe(4);
+
+          expect(orders).toHaveLength(1);
+          expect(orders[0].status).toBe('PENDING');
+          expect(orders[0].ingredientsReserved).toBe(true);
+
+          expect(orders[0].items).toHaveLength(1);
+          expect(orders[0].items[0].qty).toBe(4);
+
+          expect(orders[0].ingredientUses).toHaveLength(1);
+          expect(orders[0].ingredientUses[0].quantity).toBe(80);
+          expect(
+            orders[0].ingredientUses[0].ingredientId,
+          ).toBe(ingredient.id);
+
+          expect(finalIngredient.stock).toBe(20);
+          expect(finalIngredient.version).toBe(1);
+          expect(finalProduct.stock).toBe(0);
+
+          console.log('ORDER CONCURRENCY TEST PASSED');
+        } finally {
+          // 8. Dọn dữ liệu riêng của test
+          if (userId !== null) {
+            await prisma.order.deleteMany({
+              where: { userId },
+            });
+          }
+
+          if (productId !== null) {
+            await prisma.recipeItem.deleteMany({
+              where: { productId },
+            });
+
+            await prisma.product.deleteMany({
+              where: { id: productId },
+            });
+          }
+
+          if (ingredientId !== null) {
+            await prisma.ingredient.deleteMany({
+              where: { id: ingredientId },
+            });
+          }
+
+          if (userId !== null) {
+            await prisma.user.deleteMany({
+              where: { id: userId },
+            });
+          }
+
+          console.log('Đã dọn dữ liệu kiểm thử');
+        }
+      },
+      90000,
+    );
+  },
+);

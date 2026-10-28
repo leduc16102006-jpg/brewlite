@@ -43,17 +43,34 @@ describe('PaymentsService', () => {
     total: 94000,
   };
 
+
   const mockTx = {
     order: {
+      findUnique: jest.fn(),
       updateMany: jest.fn(),
     },
+
     payment: {
       create: jest.fn(),
       update: jest.fn(),
     },
-    // THÊM ĐOẠN NÀY VÀO:
+
+    // Dùng khi hoàn kho nguyên liệu
+    ingredient: {
+      update: jest.fn(),
+    },
+
+    // Dùng cho đơn hàng cũ quản lý theo Product.stock
+    orderItem: {
+      findMany: jest.fn(),
+    },
+
+    product: {
+      update: jest.fn(),
+    },
+
     loyaltyTransaction: {
-      create: jest.fn().mockResolvedValue({ id: 1, points: 9 }),
+      create: jest.fn(),
     },
   };
 
@@ -74,6 +91,42 @@ describe('PaymentsService', () => {
 
   beforeEach(async () => {
     jest.resetAllMocks();
+
+  // Giả lập Order đã giữ nguyên liệu
+  mockTx.order.findUnique.mockResolvedValue({
+    id: 1,
+    status: 'PAYMENT_FAILED',
+    ingredientsReserved: true,
+    ingredientUses: [
+      {
+        ingredientId: 1,
+        quantity: 36,
+      },
+      {
+        ingredientId: 2,
+        quantity: 300,
+      },
+    ],
+  });
+
+  // Cập nhật trạng thái Order thành công
+  mockTx.order.updateMany.mockResolvedValue({
+    count: 1,
+  });
+
+  // Mô phỏng hoàn nguyên liệu
+  mockTx.ingredient.update.mockResolvedValue({
+    id: 1,
+  });
+
+  // Mô phỏng dữ liệu của đơn hàng cũ
+  mockTx.orderItem.findMany.mockResolvedValue([]);
+
+  // Điểm thưởng
+  mockTx.loyaltyTransaction.create.mockResolvedValue({
+    id: 1,
+    points: 9,
+  });
 
     mockPrisma.payment.findUnique.mockResolvedValue(null);
 
@@ -167,6 +220,21 @@ describe('PaymentsService', () => {
       where: { id: 1 },
       data: { status: 'PAID' },
     });
+
+  // Thanh toán thành công không hoàn nguyên liệu
+  expect(
+    mockTx.ingredient.update,
+  ).not.toHaveBeenCalled();
+
+  // Không cần đọc dữ liệu hoàn kho
+  expect(
+    mockTx.order.findUnique,
+  ).not.toHaveBeenCalled();
+
+  // Thanh toán thành công được cộng điểm
+  expect(
+    mockTx.loyaltyTransaction.create,
+  ).toHaveBeenCalled();
   });
 
   it('CARD: thanh toán thành công', async () => {
@@ -216,21 +284,49 @@ describe('PaymentsService', () => {
       'test-failed-key',
     );
 
-    expect(result.status).toBe('PAYMENT_FAILED');
+  // Payment phải trả về thất bại
+  expect(result.status).toBe('PAYMENT_FAILED');
 
-    expect(mockTx.order.updateMany).toHaveBeenCalledWith({
-      where: {
-        id: 1,
-        userId: 1,
-        status: 'PENDING',
-      },
-      data: { status: 'PAYMENT_FAILED' },
-    });
+  // Phải đọc lượng nguyên liệu đã giữ của Order
+  expect(mockTx.order.findUnique).toHaveBeenCalledWith({
+    where: { id: 1 },
+    include: { ingredientUses: true },
+  });
 
-    expect(mockTx.payment.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: { status: 'PAYMENT_FAILED' },
-    });
+  // Phải chuyển ingredientsReserved về false
+  expect(mockTx.order.updateMany).toHaveBeenCalledWith({
+    where: {
+      id: 1,
+      ingredientsReserved: true,
+    },
+    data: {
+      ingredientsReserved: false,
+    },
+  });
+
+  // Hoàn lại 36 g cà phê
+  expect(mockTx.ingredient.update).toHaveBeenCalledWith({
+    where: { id: 1 },
+    data: {
+      stock: { increment: 36 },
+      version: { increment: 1 },
+    },
+  });
+
+  // Hoàn lại 300 ml sữa
+  expect(mockTx.ingredient.update).toHaveBeenCalledWith({
+    where: { id: 2 },
+    data: {
+      stock: { increment: 300 },
+      version: { increment: 1 },
+    },
+  });
+
+  // Thanh toán thất bại không được cộng điểm
+  expect(
+    mockTx.loyaltyTransaction.create,
+  ).not.toHaveBeenCalled();
+
   });
 
   it('Thiếu Idempotency-Key: trả lỗi 400', async () => {
@@ -409,4 +505,36 @@ describe('PaymentsService', () => {
 
     expect(mockGateway.charge).not.toHaveBeenCalled();
   });
+
+
+  it(
+    'PAYMENT_FAILED: phải giữ lại nguyên liệu trước khi thanh toán lại',
+    async () => {
+      mockPrisma.order.findUnique.mockResolvedValue({
+        ...pendingOrder,
+        status: 'PAYMENT_FAILED',
+      });
+
+      await expect(
+        service.createPayment(
+          userId,
+          {
+            orderId: 1,
+            method: PaymentMethod.WALLET,
+          },
+          'retry-payment-key',
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      // Không được gọi Gateway
+      expect(
+        mockGateway.charge,
+      ).not.toHaveBeenCalled();
+
+      // Không tạo Payment mới
+      expect(
+        mockPrisma.payment.create,
+      ).not.toHaveBeenCalled();
+    },
+  );
 });
