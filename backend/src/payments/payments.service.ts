@@ -46,6 +46,12 @@ export class PaymentsService {
 
     const key = idempotencyKey.trim();
 
+    if (dto.method === PaymentMethod.VNPAY) {
+      throw new BadRequestException(
+        'Use POST /payments/vnpay/create for VNPay payments',
+      );
+    }
+
     // 1. Nếu key đã tồn tại, không thanh toán lần nữa.
     const existingPayment = await this.prisma.payment.findUnique({
       where: { idempotencyKey: key },

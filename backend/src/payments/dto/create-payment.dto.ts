@@ -4,6 +4,7 @@ import { IsEnum, IsInt, Min } from 'class-validator';
 export enum PaymentMethod {
   WALLET = 'WALLET',
   CARD = 'CARD',
+  VNPAY = 'VNPAY',
 }
 
 export class CreatePaymentDto {
