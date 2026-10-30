@@ -36,6 +36,14 @@ describe(
 
           userId = user.id;
 
+        // Đồng bộ sequence: tách riêng từng lệnh để thỏa mãn Prepared Statement của Postgres
+          await prisma.$executeRawUnsafe(
+            `SELECT setval(pg_get_serial_sequence('"Product"', 'id'), COALESCE((SELECT MAX(id) FROM "Product"), 1))`
+          );
+          await prisma.$executeRawUnsafe(
+            `SELECT setval(pg_get_serial_sequence('"Ingredient"', 'id'), COALESCE((SELECT MAX(id) FROM "Ingredient"), 1))`
+          );
+
           // 2. Tạo sản phẩm, không dùng Product.stock
           const product = await prisma.product.create({
             data: {
