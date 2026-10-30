@@ -4,7 +4,11 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-
+import {
+  calculateIngredientRequirements,
+  reserveIngredients, releaseOrderIngredients,
+  reserveOrderIngredients,
+} from './ingredient-stock';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './dto/update-order-status.dto';
@@ -62,21 +66,13 @@ export class OrdersService {
         }
 
         const productMap = new Map(products.map((p) => [p.id, p]));
-        const productQtyMap = new Map<number, number>();
-        for (const item of dto.items) {
-          const currentQty = productQtyMap.get(item.productId) || 0;
-          productQtyMap.set(item.productId, currentQty + item.qty);
-        }
 
         let subtotal = 0;
         const orderItems = dto.items.map((item) => {
           const product = productMap.get(item.productId);
           if (!product) throw new NotFoundException('Sản phẩm không tồn tại');
 
-          const totalRequiredQty = productQtyMap.get(item.productId) || 0;
-          if (product.stock < totalRequiredQty) {
-            throw new BadRequestException(`Sản phẩm "${product.name}" không đủ tồn kho`);
-          }
+
 
           // 1. Tính giá cơ bản + Phụ thu Size
           let unitPrice = Number(product.price);
@@ -102,8 +98,8 @@ export class OrdersService {
           subtotal += lineTotal;
 
           // 4. Gộp tên Topping vào trường size để lưu lịch sử trọn vẹn
-          const savedSize = item.size 
-            ? `${item.size}${toppingStr}` 
+          const savedSize = item.size
+            ? `${item.size}${toppingStr}`
             : (toppingStr ? toppingStr.replace(' (+ ', '').replace(')', '') : null);
 
           return {
@@ -149,27 +145,15 @@ export class OrdersService {
 
         const total = subtotal - discountAmount;
 
-        // TASK 10.3: Trừ tồn kho
-        for (const [productId, qtyToDeduct] of [...productQtyMap.entries()].sort((a, b) => a[0] - b[0])) {
-          const product = productMap.get(productId);
-          if (!product) throw new NotFoundException('Sản phẩm không tồn tại');
+        // TASK 10.3: Tính nguyên liệu theo công thức
+        const requirements =
+          await calculateIngredientRequirements(
+            tx,
+            dto.items,
+          );
 
-          const result = await tx.product.updateMany({
-            where: {
-              id: productId,
-              version: product.version,
-              stock: { gte: qtyToDeduct },
-            },
-            data: {
-              stock: { decrement: qtyToDeduct },
-              version: { increment: 1 },
-            },
-          });
-
-          if (result.count !== 1) {
-            throw new BadRequestException('Tồn kho đã thay đổi. Vui lòng thử lại');
-          }
-        }
+        // Giữ nguyên liệu bằng Optimistic Locking
+        await reserveIngredients(tx, requirements);
 
         return tx.order.create({
           data: {
@@ -179,9 +163,31 @@ export class OrdersService {
             promotionId,
             total,
             status: 'PENDING',
-            items: { create: orderItems },
+
+            // Đánh dấu nguyên liệu đã được giữ
+            ingredientsReserved: true,
+
+            // Lưu các sản phẩm khách đặt
+            items: {
+              create: orderItems,
+            },
+
+            // Lưu lượng nguyên liệu đã giữ
+            ingredientUses: {
+              create: requirements.map((item) => ({
+                ingredientId: item.ingredientId,
+                quantity: item.quantity,
+              })),
+            },
           },
-          include: { items: { include: { product: true } } },
+          include: {
+            items: {
+              include: { product: true },
+            },
+            ingredientUses: {
+              include: { ingredient: true },
+            },
+          },
         });
       },
       { maxWait: 10000, timeout: 20000 },
@@ -213,33 +219,64 @@ export class OrdersService {
         throw new BadRequestException('Trạng thái đơn hàng đã thay đổi. Vui lòng thử lại');
       }
 
-      const releaseStock = currentStatus === 'PENDING' && (nextStatus === 'PAYMENT_FAILED' || nextStatus === 'CANCELLED');
-      const cancelPaidOrder = currentStatus === 'PAID' && nextStatus === 'CANCELLED';
+      // TASK 10.3: Hoàn nguyên liệu khi hủy/thất bại
+      const releaseStock =
+        currentStatus === 'PENDING' &&
+        (
+          nextStatus === 'PAYMENT_FAILED' ||
+          nextStatus === 'CANCELLED'
+        );
+
+      const cancelPaidOrder =
+        currentStatus === 'PAID' &&
+        nextStatus === 'CANCELLED';
 
       if (releaseStock || cancelPaidOrder) {
-        for (const item of order.items) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: {
-              stock: { increment: item.qty },
-              version: { increment: 1 },
-            },
-          });
+        const handledByIngredients =
+          await releaseOrderIngredients(tx, orderId);
+
+        // Tương thích với các đơn hàng cũ:
+        // Chưa có OrderIngredient thì dùng Product.stock
+        if (!handledByIngredients) {
+          for (const item of order.items) {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: {
+                stock: { increment: item.qty },
+                version: { increment: 1 },
+              },
+            });
+          }
         }
       }
 
-      if (currentStatus === 'PAYMENT_FAILED' && nextStatus === 'PENDING') {
-        for (const item of order.items) {
-          const reserved = await tx.product.updateMany({
-            where: { id: item.productId, stock: { gte: item.qty } },
-            data: {
-              stock: { decrement: item.qty },
-              version: { increment: 1 },
-            },
-          });
+      // TASK 10.3: Giữ lại nguyên liệu khi thử thanh toán lại
+      if (
+        currentStatus === 'PAYMENT_FAILED' &&
+        nextStatus === 'PENDING'
+      ) {
+        const handledByIngredients =
+          await reserveOrderIngredients(tx, orderId);
 
-          if (reserved.count !== 1) {
-            throw new BadRequestException('Không đủ tồn kho để thử thanh toán lại');
+        // Đơn hàng cũ chưa có OrderIngredient
+        if (!handledByIngredients) {
+          for (const item of order.items) {
+            const reserved = await tx.product.updateMany({
+              where: {
+                id: item.productId,
+                stock: { gte: item.qty },
+              },
+              data: {
+                stock: { decrement: item.qty },
+                version: { increment: 1 },
+              },
+            });
+
+            if (reserved.count !== 1) {
+              throw new BadRequestException(
+                'Không đủ tồn kho để thử thanh toán lại',
+              );
+            }
           }
         }
       }

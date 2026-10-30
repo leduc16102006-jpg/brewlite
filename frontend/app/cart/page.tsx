@@ -167,7 +167,7 @@ export default function CartAndCheckoutPage() {
         throw { type: "GENERAL", message: "Không thể khởi tạo mã đơn hàng hợp lệ." };
       }
 
-      // Xử lý giả lập lỗi thanh toán (Task 8)
+      // 1. Xử lý giả lập lỗi thanh toán (Task 8)
       if (simulatePaymentError) {
         try {
           await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/orders/${orderIdToPay}/status`, {
@@ -181,12 +181,25 @@ export default function CartAndCheckoutPage() {
 
         throw {
           type: "PAYMENT_ERROR",
-          message: `❌ Thanh toán thất bại (Task 8): Cổng giao dịch ${paymentMethod} từ chối đơn hàng #${orderIdToPay} (Trạng thái đơn: PAYMENT_FAILED).`,
+          message: `❌ Thanh toán thất bại (Task 8): Cổng giao dịch ${paymentMethod} từ chối đơn hàng #${orderIdToPay}.`,
         };
       }
 
-      // Gọi API thanh toán thật (Task 8 & 10.2)
-      // Thêm dấu ! (orderIdToPay!) để khẳng định chắc chắn 100% không phải null
+      // 2. Khôi phục trạng thái PENDING để giữ lại kho trước khi thử thanh toán thật (Tích hợp Task 10.3)
+      if (orderIdToPay) {
+        const resetRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/orders/${orderIdToPay}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ status: "PENDING" }),
+        });
+        
+        if (!resetRes.ok) {
+           const errData = await resetRes.json();
+           throw { type: "STOCK_ERROR", message: errData.message || "Không thể giữ lại nguyên liệu để thanh toán. Kho có thể đã hết." };
+        }
+      }
+
+      // 3. Gọi API thanh toán thật (Task 8 & 10.2)
       await processPayment(orderIdToPay!, paymentMethod);
 
       // Thành công -> Chuyển hướng
