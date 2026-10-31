@@ -408,3 +408,54 @@ npm test
 Kết quả chuẩn xác:textTest Suites: 6 passed, 6 total
 Tests:       30 passed, 30 total(Vượt qua 100% các tiêu chí a, b, c)
 ```
+
+# task 8: Bo sung VNpay\
+1. Giới thiệu
+  Chức năng thanh toán VNPay được tích hợp vào backend BrewLite sử dụng NestJS và Prisma. Hệ thống cho phép tạo URL thanh toán, chuyển người dùng đến cổng VNPay Sandbox, xác minh kết quả giao dịch và cập nhật trạng thái thanh toán.
+
+2. download ngrok
+website dang ky: https://caddie-untouched-aerosol.ngrok-free.dev
+Thông tin truy cập Merchant Admin để quản lý giao dịch:
+Địa chỉ: https://sandbox.vnpayment.vn/merchantv2/
+user:  congdanhbui22@gmail.com
+passw: TsH9CX3yQt6r*9x
+
+3. Các API:
+POST
+/payments/vnpay/create: Tạo URL thanh toán VNPay
+
+GET
+/payments/vnpay/ipn: Nhận IPN callback từ VNPay
+
+GET
+/payments/vnpay/return: Xác minh kết quả trả về từ VNPay
+
+GET
+/payments/vnpay/ipn/test: Endpoint hỗ trợ kiểm tra Payment trong môi trường phát triển
+
+5. Quy trình thanh toán:
+  Frontend hoặc Swagger gọi API tạo thanh toán.
+  Backend tạo URL thanh toán chứa thông tin giao dịch và chữ ký.
+  Người dùng mở URL và thực hiện thanh toán trên VNPay Sandbox.
+  VNPay gửi kết quả đến IPN URL.
+  Backend xác minh chữ ký, mã merchant, số tiền và thông tin Payment.
+  Nếu dữ liệu hợp lệ, backend cập nhật trạng thái thanh toán và đơn hàng theo logic nghiệp vụ.
+  VNPay chuyển trình duyệt về Return URL để hiển thị kết quả cho người dùng.
+
+6. Cấu hình môi trường:
+  Cấu hình các biến môi trường cần thiết trong .env, bao gồm thông tin kết nối database và thông tin VNPay Sandbox.
+  Không commit file .env, merchant secret hoặc các thông tin bí mật lên GitHub.
+
+7. Kiểm tra bằng Swagger:
+  http://localhost:3000/api/docs
+  Các bước kiểm thử:
+    1. Gọi POST /payments/vnpay/create để tạo URL thanh toán.
+    2. Mở URL được trả về và thanh toán bằng thông tin Sandbox phù hợp.
+    3. Kiểm tra log backend để xác nhận IPN được gọi và chữ ký hợp lệ.
+    4. Kiểm tra Payment và Order trong PostgreSQL bằng pgAdmin.
+    5. Kiểm tra Return URL để xác nhận kết quả được trả về trình duyệt.
+  Lưu ý: Không nên bấm Execute trên IPN với dữ liệu giả để mô phỏng giao dịch thành công. Chữ ký không hợp lệ sẽ bị từ chối. Endpoint /ipn/test chỉ phục vụ kiểm tra dữ liệu đã lưu, không thay thế callback thật từ VNPay.  
+
+8. demo test
+  https://sandbox.vnpayment.vn/apis/vnpay-demo/
+
