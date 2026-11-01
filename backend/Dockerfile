@@ -11,9 +11,9 @@ RUN npm install
 # Copy toàn bộ mã nguồn backend vào container
 COPY . .
 
-# Khởi tạo Prisma Client
-#RUN npx prisma generate
-RUN DATABASE_URL="postgresql://postgres:postgres@localhost:5432/brewlite_db?schema=public" npx prisma generate
+# ✅ SỬA: Dùng biến môi trường, không cứng localhost
+# Tạo Prisma Client — DATABASE_URL ở đây chỉ dùng lúc generate, không phải lúc chạy
+RUN DATABASE_URL="postgresql://postgres:postgres@postgres:5432/brewlite_db?schema=public" npx prisma generate
 
 # Biên dịch NestJS từ TypeScript sang JavaScript
 RUN npm run build
@@ -21,5 +21,5 @@ RUN npm run build
 # Mở cổng 3000
 EXPOSE 3000
 
-# Lệnh khởi chạy: Tự động đồng bộ CSDL (db push) trước khi chạy Server
-CMD npx prisma db push && npx prisma db seed && npm run start:prod
+# ✅ SỬA: Dùng sh -c để chạy nhiều lệnh trong 1 dòng, biến môi trường từ .env/docker-compose sẽ có hiệu lực
+CMD ["sh", "-c", "npx prisma db push && npx prisma db seed && node dist/main"]
