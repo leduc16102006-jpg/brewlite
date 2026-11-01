@@ -9,6 +9,7 @@ import {
   Query,
   Req,
   UseGuards,
+  Redirect
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -214,9 +215,18 @@ async testIpn(@Query('paymentId') paymentId: string) {
   
   
 @Get('return')
-@ApiOperation({
-  summary: 'Nhận kết quả thanh toán trả về từ VNPay',
-})
+  @Redirect() // THÊM DÒNG NÀY: Báo cho NestJS biết đây là API chuyển hướng trang
+  async verifyReturn(@Query() query: any) {
+    // 1. Nhờ Service xác minh chữ ký và lấy kết quả
+    const result = await this.vnpayService.verifyReturn(query);
+
+    // 2. Tự động "đá" khách hàng về trang Frontend kèm theo mã đơn hàng
+    // Nếu đơn hợp lệ, chuyển về trang /order-confirmation của FE
+    return {
+      url: `http://localhost:3001/order-confirmation?orderId=${result.orderId}`
+    };
+  }
+  
 async paymentReturn(
   @Query()
   query: Record<string, string | string[] | undefined>,

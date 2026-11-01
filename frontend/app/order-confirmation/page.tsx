@@ -2,12 +2,43 @@
 
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 function ConfirmationContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId") || "---";
-  const total = searchParams.get("total") || "0";
+  const urlTotal = searchParams.get("total");
+
+  // State lưu trữ số tiền tổng và trạng thái loading
+  const [orderTotal, setOrderTotal] = useState<number>(Number(urlTotal) || 0);
+  const [isLoading, setIsLoading] = useState<boolean>(!urlTotal && orderId !== "---");
+
+  // Tự động fetch dữ liệu nếu URL thiếu tham số total (trường hợp trả về từ VNPay)
+  useEffect(() => {
+    if (urlTotal || orderId === "---") return;
+
+    const fetchOrderDetails = async () => {
+      try {
+        const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/orders/${orderId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setOrderTotal(data.total); // Cập nhật lại số tiền thật từ DB
+        }
+      } catch (error) {
+        console.error("Lỗi khi lấy thông tin đơn hàng:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOrderDetails();
+  }, [orderId, urlTotal]);
 
   return (
     <div className="w-full max-w-md rounded-[2.5rem] border border-[#eee3d7] bg-white p-8 text-center shadow-xl sm:p-10">
@@ -37,7 +68,10 @@ function ConfirmationContent() {
         <div className="flex justify-between text-sm">
           <span className="text-[#8b796b]">Tổng số tiền</span>
           <span className="font-bold text-[#a16b4b]">
-            {new Intl.NumberFormat("vi-VN").format(Number(total))}đ
+            {isLoading 
+              ? "Đang tải..." 
+              : `${new Intl.NumberFormat("vi-VN").format(orderTotal)}đ`
+            }
           </span>
         </div>
       </div>
