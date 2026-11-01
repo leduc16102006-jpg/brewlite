@@ -44,8 +44,11 @@ Tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api
 | | Backend (`POST`) | `/auth/login` | Public | Đăng nhập hệ thống, cấp `accessToken` (JWT). | Bạn E |
 | | Backend (`GET`) | `/auth/me` | Bearer JWT | Trích xuất thông tin người dùng từ token (`JwtAuthGuard`). | Bạn E |
 | | Frontend (Next.js) | `/login` | Public | Giao diện đăng nhập, nút con mắt ẩn/hiện mật khẩu, tự độnug lưu token và điều hướng. | Bạn B |
-| **Task 8: Thanh toán không tiền mặt** | Backend (`POST`) | `/payments` | Bearer JWT + Idempotency | Thanh toán qua Ví (`WALLET`) hoặc Thẻ (`CARD`). Cập nhật đơn sang `PAID` hoặc `PAYMENT_FAILED`, ghi lịch sử vào bảng `Payment`. | Bạn E |
-| | Frontend (Next.js) | `/cart` (Mục Thanh toán) | Bearer JWT | Chọn phương thức `WALLET`/`CARD`, gửi kèm Header `Idempotency-Key`, công cụ mô phỏng lỗi và nút "Thử lại thanh toán". |  Bạn B (SM) |
+| **Task 8: Thanh toán không tiền mặt & Cổng VNPay** | Backend (`POST`) | `/payments` | Bearer JWT + Idempotency | Thanh toán giả lập qua Ví (`WALLET`) hoặc Thẻ (`CARD`). | Bạn E |
+| | Backend (`POST`) | `/payments/vnpay/create` | Bearer JWT | Khởi tạo URL giao dịch VNPay Sandbox có gắn chữ ký bảo mật SHA-512. | Bạn E |
+| | Backend (`GET`) | `/payments/vnpay/ipn` | Public (Webhook) | Nhận kết quả ngầm (IPN) từ server VNPay, cập nhật đơn sang `PAID` an toàn. | Bạn E |
+| | Backend (`GET`) | `/payments/vnpay/return` | Public | Xác thực chữ ký dữ liệu trả về từ trình duyệt khách và chuyển hướng về FE. | Bạn E |
+| | Frontend (Next.js) | `/cart` | Bearer JWT | Chọn `WALLET`/`CARD` hoặc `VNPAY` (Quét mã QR / Thẻ ATM), chuyển hướng cổng thanh toán. | Bạn B & A |
 | **Task 9: Lịch sử & Xác nhận đơn** | Frontend (Next.js) | `/order-confirmation` | Public/JWT | Màn hình biên nhận tức thì: mã đơn, nhãn xanh `PAID`, tổng tiền và lời nhắc nhận món tại quầy. | Bạn B (SM) |
 | | Backend (`GET`) | `/orders/me` | Bearer JWT | Lấy danh sách lịch sử đơn hàng của tài khoản đang đăng nhập, sắp xếp mới nhất. | Bạn E |
 | | Frontend (Next.js) | `/orders` | Bearer JWT | Giao diện lịch sử đơn hàng kết nối API thật, lọc theo trạng thái, nút Đăng xuất xóa token. | D & B|
@@ -85,17 +88,17 @@ Tài liệu Swagger tương tác trực tiếp tại: `http://localhost:3000/api
 
 ---
 
-### Task 8 , 10.2 : Thanh toán Không tiền mặt & Xử lý Giao dịch
-- **Người phụ trách:** Thành viên E &  B (Frontend Payment Flow & Exception Handling) & C 
+### Task 8 & 10.2: Thanh toán Không tiền mặt & Tích hợp Cổng VNPay
+- **Người phụ trách:** Thành viên E (Backend VNPay & Idempotency) & Thành viên B, A (Frontend Payment Flow & Integration)
 - **Tiêu chí nghiệm thu (DoD):**
-  1. **Lựa chọn phương thức:** Hỗ trợ lựa chọn giữa 2 phương thức chuẩn: Ví điện tử BrewPay (`WALLET`) và Thẻ Ngân hàng / ATM (`CARD`).
-  2. **Tích hợp API thanh toán:** Frontend gọi API `POST /payments` gửi kèm JWT Bearer Token và Header `Idempotency-Key` (Task 10.2) duy nhất cho mỗi giao dịch để chống trừ tiền trùng lặp.
-  3. **Cập nhật trạng thái đơn:** Khi giao dịch thành công, đơn hàng chuyển từ `PENDING` sang `PAID`, giỏ hàng được dọn sạch và chuyển hướng sang màn hình biên nhận Task 9.
-  4. **Xử lý ngoại lệ (PAYMENT_FAILED):** Tích hợp công cụ giả lập lỗi thanh toán. Khi xảy ra lỗi từ chối giao dịch, hệ thống không làm mất giỏ hàng, hiển thị khung cảnh báo đỏ chi tiết và cung cấp nút "Thử lại thanh toán ngay" hoặc cho phép đổi phương thức thanh toán khác.
-- **Cách chạy & kiểm tra:**
-  - Tại trang `http://localhost:3001/cart`, chọn phương thức thanh toán `WALLET` hoặc `CARD`.
-  - **Kiểm tra luồng lỗi (Test DoD):** Tích chọn ô *"Mô phỏng lỗi thanh toán (Task 8 PAYMENT_FAILED)"* -> Bấm nút Thanh toán. Màn hình xuất hiện khung báo lỗi màu đỏ kèm nút *"Thử lại thanh toán ngay"*.
-  - **Kiểm tra luồng thành công:** Bỏ tích ô lỗi -> Bấm *"Xác nhận & Thanh toán"*. Hệ thống gửi request có Header `Idempotency-Key` lên Backend, xác nhận đơn `PAID` và chuyển hướng sang trang biên nhận.
+  1. **Đa dạng phương thức:** Hỗ trợ thanh toán nội bộ (`WALLET`, `CARD`) và tích hợp cổng thanh toán thực tế **VNPAY Sandbox** (quét mã VNPAY-QR hoặc thẻ ATM nội địa).
+  2. **Kiến trúc Asynchronous Payment (VNPay):**
+     - Sinh mã URL thanh toán kèm chữ ký SHA-512 chuẩn xác (`POST /payments/vnpay/create`).
+     - Lắng nghe Webhook IPN (`GET /payments/vnpay/ipn`) để cập nhật trạng thái đơn `PAID` từ server VNPay, chống gian lận Client-side.
+     - Tự động điều hướng trình duyệt sau thanh toán về trang `/order-confirmation` hiển thị thông tin biên lai.
+  3. **Chống trừ tiền trùng lặp (Task 10.2):** Bắt buộc Header `Idempotency-Key` trên API thanh toán.
+  4. **Xử lý ngoại lệ (PAYMENT_FAILED):** Giả lập từ chối giao dịch, giữ giỏ hàng, cho phép chọn lại phương thức hoặc thử lại.
+> 📌 *Chi tiết cấu hình ngrok và danh sách thẻ test Sandbox xem tại tệp:* [`backend/README_TASK8.md`](./backend/README_TASK8.md)
 
 ---
 
@@ -151,6 +154,7 @@ Bước 3: Khởi chạy Backend (Terminal 1)
 cd backend
 npm install
 copy .env.example .env
+# (Lưu ý: Điền mã VNPAY_TMN_CODE và VNPAY_HASH_SECRET vào file .env nếu cần test cổng VNPay)
 npx prisma generate
 npx prisma db push
 npx prisma db seed
@@ -401,12 +405,13 @@ Gọi POST /orders có kèm "promotionCode": "BREW10"
 Gọi POST /payments thanh toán cho đơn hàng trên
 → Sau khi đơn chuyển sang PAID, mở bảng LoyaltyTransaction trên Prisma Studio: Xuất hiện dòng cộng điểm mới tương ứng với công thức total / 10000.
  
-5. Chạy Toàn bộ Kiểm thử Tự động (Backend Test Suite)
-Để kiểm tra toàn diện tất cả các tiêu chí chấm điểm kỹ thuật tự động của đề tài, tại thư mục backend, chạy lệnh duy nhất:
-Bash
-npm test
-Kết quả chuẩn xác:textTest Suites: 6 passed, 6 total
-Tests:       30 passed, 30 total(Vượt qua 100% các tiêu chí a, b, c)
+### 6. Chạy Toàn bộ Kiểm thử Tự động (Backend Test Suite)
+Tại thư mục `backend`, chạy lệnh:
+```bash
+npm test -- --runInBand
+Test Suites: 7 passed, 7 total
+Tests:       40 passed, 40 total
+Snapshots:   0 total
+Ran all test suites.
+(Bao gồm: payments.service, products.service, orders.controller, stock-concurrency.integration, payments.controller, orders.service, app.controller).
 ```
-
-
