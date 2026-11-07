@@ -120,12 +120,24 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 text-center text-xs text-[#8b796b]">
-          <Link href="/orders" className="hover:underline">
-            ← Quay lại trang lịch sử đơn
-          </Link>
-        </div>
+      <div className="mt-6 text-center text-xs text-[#8b796b]">
+        <Link href="/orders" className="hover:underline">
+          ← Quay lại trang lịch sử đơn
+        </Link>
       </div>
-    </main>
-  );
+
+      {/* Liên kết sang trang đăng ký */}
+      <p className="mt-8 text-center text-sm font-medium text-[#8b796b]">
+        Chưa có tài khoản?{" "}
+        <Link
+          href="/register"
+          className="font-bold text-[#a16b4b] hover:underline"
+        >
+          Tạo tài khoản mới
+        </Link>
+      </p>
+
+    </div>
+  </main>
+);
 }

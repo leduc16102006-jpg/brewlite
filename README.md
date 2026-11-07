@@ -106,6 +106,7 @@ Tài liệu Swagger UI tương tác trực tiếp tại: **`http://localhost:300
 | | Backend (`POST`) | `/auth/login` | Public | Đăng nhập hệ thống, cấp `accessToken` (JWT). | Bạn E |
 | | Backend (`GET`) | `/auth/me` | Bearer JWT | Trích xuất thông tin người dùng từ token (`JwtAuthGuard`). | Bạn E |
 | | Frontend (Next.js) | `/login` | Public | Form đăng nhập hoàn chỉnh, ẩn/hiện mật khẩu, lưu token và điều hướng. | Bạn B |
+| | Frontend (Next.js) | `/auth`  | Public | Đăng ký tạo tài khoản   | Bạn B |
 | **Task 8: Thanh toán & VNPay** | Backend (`POST`) | `/payments` | Bearer JWT + Idempotency | Thanh toán giả lập qua Ví (`WALLET`) hoặc Thẻ (`CARD`). | Bạn F & Bạn E |
 | | Backend (`POST`) | `/payments/vnpay/create` | Bearer JWT + Idempotency | Khởi tạo URL giao dịch VNPay Sandbox có gắn chữ ký bảo mật SHA-512. | Bạn E |
 | | Backend (`GET`) | `/payments/vnpay/ipn` | Public (Webhook) | Nhận kết quả ngầm (IPN) từ server VNPay, cập nhật đơn sang `PAID` an toàn. | Bạn E |
