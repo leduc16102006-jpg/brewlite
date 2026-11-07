@@ -1,5 +1,5 @@
-# Sử dụng môi trường Node.js 20 nhẹ (Alpine)
-FROM node:20-alpine
+
+FROM node:22-alpine
 
 # Đặt thư mục làm việc trong container
 WORKDIR /app

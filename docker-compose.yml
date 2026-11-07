@@ -22,6 +22,12 @@ services:
       # Bí quyết: Backend trong Docker gọi CSDL thông qua tên container 'postgres' thay vì 'localhost'
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/brewlite_db?schema=public
       JWT_SECRET: brewlite_secret_key_2026_hcmue
+
+      VNPAY_TMN_CODE: N9R17DF6
+      VNPAY_HASH_SECRET: UWWFYKMMPCQNNYNMCCZCYPGDCSCAJWFU
+      VNPAY_PAYMENT_URL: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+      VNPAY_RETURN_URL: http://localhost:3000/payments/vnpay/return
+      
     depends_on:
       - postgres
 

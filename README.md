@@ -49,13 +49,44 @@
 
 ## 2. Kiến trúc & Ngăn xếp Công nghệ (Tech Stack)
 
-Hệ thống được tổ chức theo mô hình Monorepo chia tách độc lập giữa Client và Server:
+Hệ thống được tổ chức theo mô hình **Monorepo** với hai thành phần độc lập: **Frontend Client** và **Backend API Server**.
 
-* **Frontend (`/frontend`)**: Next.js 14+ (App Router), React, TypeScript, TailwindCSS, Fetch API tích hợp Bearer JWT & Idempotency Key, Context API (`CartContext`) duy trì giỏ hàng qua `localStorage`.
-* **Backend (`/backend`)**: NestJS Framework, TypeScript, Kiến trúc Module hướng dịch vụ (Controller - Service - DTO), OpenAPI Swagger UI (`/api/docs`), Passport-JWT (`JwtAuthGuard`), `class-validator` & `class-transformer`.
-* **Cơ sở dữ liệu & ORM**: PostgreSQL 16/17, Prisma ORM (Quản lý schema, migrations, transaction và seed dữ liệu mẫu).
-* **Cổng thanh toán điện tử**: VNPay Sandbox Payment Gateway, mã hóa bảo mật SHA-512, cơ chế bất đồng bộ Webhook IPN (kết hợp ngrok) và xử lý chuyển hướng kết quả Return URL.
-* **Hạ tầng & Đóng gói**: Docker, Docker Compose đa dịch vụ, GitFlow chuẩn doanh nghiệp (`main`, `develop`, `feature/*`), Jest Test Runner.
+### 2.1 Frontend (`/frontend`)
+- **Next.js 16** (App Router)
+- **React 19**
+- **TypeScript**
+- **Tailwind CSS**
+- Fetch API tích hợp Bearer JWT và Idempotency Key
+- Context API (`CartContext`) lưu trữ giỏ hàng thông qua `localStorage`
+
+### 2.2 Backend (`/backend`)
+- **NestJS 12** Framework
+- **TypeScript**
+- Kiến trúc Controller - Service - DTO
+- OpenAPI Swagger UI (`/api/docs`)
+- Passport JWT Authentication (`JwtAuthGuard`)
+- `class-validator` và `class-transformer`
+
+### 2.3 Cơ sở dữ liệu & ORM
+- **PostgreSQL 16**
+- **Prisma ORM 6**
+- Prisma Client
+- Schema Management
+- Transaction Processing
+- Seed Data Management
+
+### 2.4 Thanh toán điện tử
+- **VNPay Sandbox** Payment Gateway
+- SHA-512 Signature Verification
+- Asynchronous IPN Callback Processing
+- Return URL Validation
+- Transaction-safe Order & Payment Update
+
+### 2.5 Hạ tầng & DevOps
+- **Docker** & **Docker Compose**
+- Multi-container Architecture (Frontend, Backend, PostgreSQL)
+- GitFlow Workflow (`main`, `develop`, `feature/*`)
+- **Jest** Test Runner
 
 ---
 
@@ -92,7 +123,7 @@ Tài liệu Swagger UI tương tác trực tiếp tại: **`http://localhost:300
 > 📌 **Tài liệu Kỹ thuật Chi tiết cho từng phân hệ mở rộng:**
 > * Hướng dẫn tích hợp Cổng thanh toán VNPay Sandbox & Webhook ngrok: Xem tại [`backend/README_TASK8.md`](./backend/README_TASK8.md).
 > * Hướng dẫn kiểm thử Docker Compose Full-stack & Lịch sử đơn hàng: Xem tại [`backend/README_TASK9.md`](./backend/README_TASK9.md).
-
+> * Xem rõ hơn về nguyên liệu và các thành phần trong từng món trong menu tại [`backend/README-TASK10.3.md`](./backend/README-TASK10.3.md).
 ---
 
 ## 4. Hướng dẫn Khởi chạy Hệ thống
@@ -345,6 +376,7 @@ Quy trình trải nghiệm hoàn chỉnh toàn bộ tính năng liên thông gi�
 * **Người phụ trách:** Thành viên E
 * **Tiêu chí nghiệm thu (Tiêu chí chấm c):** Sử dụng trường `version` và Database Transaction. Khi nhiều luồng cùng đặt 1 ly cuối cùng, chỉ 1 đơn thành công, tồn kho không bao giờ bị âm.
 * **Cách chạy & kiểm tra:**
+* Xem tài liệu chi tiết tại [`backend/README-TASK10.3.md`](./backend/README-TASK10.3.md).
   * Chạy bài test tranh chấp đồng thời:
     ```bash
     npm test -- stock-concurrency.integration.ts
